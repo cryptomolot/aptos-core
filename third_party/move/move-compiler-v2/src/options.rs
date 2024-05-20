@@ -104,6 +104,10 @@ pub struct Options {
     #[clap(long = cli::WARN_UNUSED_FLAG, default_value="false")]
     pub warn_unused: bool,
 
+    /// Error out after compilation on any warning as if it were an error.
+    #[clap(long = cli::MOVE_COMPILER_WARNINGS_ARE_ERRORS_FLAG, default_value="false")]
+    pub warnings_are_errors: bool,
+
     /// Whether to compile everything, including dependencies.
     #[clap(long)]
     pub whole_program: bool,
