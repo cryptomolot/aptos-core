@@ -98,8 +98,14 @@ impl StatelessPipeline for ExecutionSchedulePhase {
                     input_txns,
                     result,
                     execution_time,
+                    commit_rx,
                 } = fut.await?;
-                results.push(block.set_execution_result(input_txns, result, execution_time));
+                results.push(block.set_execution_result(
+                    input_txns,
+                    result,
+                    execution_time,
+                    commit_rx,
+                ));
             }
             drop(lifetime_guard);
             Ok(results)
