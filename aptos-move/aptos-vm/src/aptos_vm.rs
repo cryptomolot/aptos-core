@@ -636,6 +636,7 @@ impl AptosVM {
                 txn_data,
                 log_context,
                 traversal_context,
+                self.is_simulation,
             )
         })?;
 
@@ -681,6 +682,7 @@ impl AptosVM {
                 txn_data,
                 log_context,
                 traversal_context,
+                self.is_simulation,
             )
         })?;
         let output = epilogue_session.finish(
@@ -1200,7 +1202,9 @@ impl AptosVM {
         new_published_modules_loaded: &mut bool,
         change_set_configs: &ChangeSetConfigs,
     ) -> Result<(VMStatus, VMOutput), VMStatus> {
-        if self.is_simulation {
+        // Once `simulation_enhancement` is enabled, we use `execute_multisig_transaction` for simulation,
+        // deprecating `simulate_multisig_transaction`.
+        if self.is_simulation && !self.features().is_simulation_enhancement_enabled() {
             self.simulate_multisig_transaction(
                 resolver,
                 session,
@@ -2308,6 +2312,7 @@ impl AptosVM {
                     txn_data,
                     log_context,
                     traversal_context,
+                    self.is_simulation,
                 )
             },
             TransactionPayload::Multisig(multisig_payload) => {
@@ -2319,11 +2324,11 @@ impl AptosVM {
                     txn_data,
                     log_context,
                     traversal_context,
+                    self.is_simulation,
                 )?;
-                // Skip validation if this is part of tx simulation.
-                // This allows simulating multisig txs without having to first create the multisig
-                // tx.
-                if !self.is_simulation {
+                // Once "simulation_enhancement" is enabled, the simulation path also validates the
+                // multisig transaction by running the multisig prologue.
+                if !self.is_simulation || self.features().is_simulation_enhancement_enabled() {
                     transaction_validation::run_multisig_prologue(
                         session,
                         txn_data,
