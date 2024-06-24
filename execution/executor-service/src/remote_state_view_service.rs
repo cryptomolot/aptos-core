@@ -166,7 +166,7 @@ impl<S: StateView + Sync + Send + 'static> RemoteStateViewService<S> {
             let kv_tx_clone = self.kv_tx.clone();
             // self.kv_cmd_tx_pool[rng.gen_range(0, self.num_kv_req_threads)].send(message).unwrap();
 
-            tokio::spawn(async move {Self::handle_message(message, state_view_clone, kv_tx_clone, 0);});
+            tokio::task::spawn_blocking(move || {Self::handle_message(message, state_view_clone, kv_tx_clone, 0);});
             //
             // thread_pool_clone
             //     .spawn(move || Self::handle_message(message, state_view_clone, kv_tx_clone, 0));
