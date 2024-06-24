@@ -149,6 +149,7 @@ impl<S: StateView + Sync + Send + 'static> RemoteStateViewService<S> {
         //                                               recv_condition_clone.clone()));
         // }
         let mut rng = StdRng::from_entropy();
+        let mut handlers = vec![];
         while let Ok(message) = self.kv_rx.recv() {
             let curr_time = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis() as u64;
             let mut delta = 0.0;
@@ -166,7 +167,7 @@ impl<S: StateView + Sync + Send + 'static> RemoteStateViewService<S> {
             let kv_tx_clone = self.kv_tx.clone();
             // self.kv_cmd_tx_pool[rng.gen_range(0, self.num_kv_req_threads)].send(message).unwrap();
 
-            tokio::task::spawn_blocking(move || {Self::handle_message(message, state_view_clone, kv_tx_clone, 0);});
+            handlers.push(tokio::task::spawn(async move {Self::handle_message(message, state_view_clone, kv_tx_clone, 0);}));
             //
             // thread_pool_clone
             //     .spawn(move || Self::handle_message(message, state_view_clone, kv_tx_clone, 0));
@@ -182,6 +183,9 @@ impl<S: StateView + Sync + Send + 'static> RemoteStateViewService<S> {
             // REMOTE_EXECUTOR_TIMER
             //     .with_label_values(&["0", "kv_req_pq_size"])
             //     .observe(self.kv_unprocessed_pq.len() as f64);
+        }
+        for handler in handlers {
+            handler.await.unwrap();
         }
     }
 
