@@ -41,7 +41,7 @@ impl<S: StateView + Sync + Send + 'static> RemoteStateViewService<S> {
         num_threads: Option<usize>,
     ) -> Self {
         let num_threads = num_threads.unwrap_or_else(num_cpus::get);
-        let num_kv_req_threads = 45; //num_cpus::get() / 2;
+        let num_kv_req_threads = 30; //num_cpus::get() / 2;
         let num_shards = remote_shard_addresses.len();
         info!("num threads for remote state view service: {}", num_threads);
         /*let mut thread_pool = vec![];
@@ -112,18 +112,18 @@ impl<S: StateView + Sync + Send + 'static> RemoteStateViewService<S> {
         let thread_pool_clone = self.thread_pool.clone();
 
         info!("Num handlers created is {}", thread_pool_clone.current_num_threads());
-        // for i in 0..thread_pool_clone.current_num_threads() {
-        //     let state_view_clone = self.state_view.clone();
-        //     let kv_tx_clone = self.kv_tx.clone();
-        //     let kv_cmd_rx_clone = self.kv_cmd_rx_pool[i].clone();
-        //     // let kv_unprocessed_pq_clone = self.kv_unprocessed_pq.clone();
-        //     // let recv_condition_clone = self.recv_condition.clone();
-        //
-        //     thread_pool_clone
-        //         .spawn(move || Self::priority_handler(state_view_clone.clone(),
-        //                                               kv_tx_clone.clone(),
-        //                                               kv_cmd_rx_clone));
-        // }
+        for i in 0..thread_pool_clone.current_num_threads() {
+            let state_view_clone = self.state_view.clone();
+            let kv_tx_clone = self.kv_tx.clone();
+            let kv_cmd_rx_clone = self.kv_cmd_rx_pool[i].clone();
+            // let kv_unprocessed_pq_clone = self.kv_unprocessed_pq.clone();
+            // let recv_condition_clone = self.recv_condition.clone();
+
+            thread_pool_clone
+                .spawn(move || Self::priority_handler(state_view_clone.clone(),
+                                                      kv_tx_clone.clone(),
+                                                      kv_cmd_rx_clone));
+        }
 
         // for _ in 0..thread_pool_clone.current_num_threads() {
         //     let state_view_clone = self.state_view.clone();
@@ -152,7 +152,8 @@ impl<S: StateView + Sync + Send + 'static> RemoteStateViewService<S> {
 
             let state_view_clone = self.state_view.clone();
             let kv_tx_clone = self.kv_tx.clone();
-            Self::handle_message(message, state_view_clone, kv_tx_clone, 0);
+            self.kv_cmd_tx_pool[rng.gen_range(0, self.num_kv_req_threads)].send(message).unwrap();
+            //Self::handle_message(message, state_view_clone, kv_tx_clone, 0);
             //
             // thread_pool_clone
             //     .spawn(move || Self::handle_message(message, state_view_clone, kv_tx_clone, 0));
@@ -174,7 +175,7 @@ impl<S: StateView + Sync + Send + 'static> RemoteStateViewService<S> {
     pub fn priority_handler(state_view: Arc<RwLock<Option<Arc<S>>>>,
                             kv_tx: Arc<Vec<Vec<Mutex<OutboundRpcHelper>>>>,
                             kv_cmd_rx: Arc<Receiver<Message>>,) {
-        let mut rng = StdRng::from_entropy();
+        //let mut rng = StdRng::from_entropy();
         while let Ok(message) = kv_cmd_rx.recv() {
             // let (lock, cvar) = &*recv_condition;
             // let mut lg = lock.lock().unwrap();
