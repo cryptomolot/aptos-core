@@ -167,7 +167,7 @@ impl<S: StateView + Sync + Send + 'static> RemoteStateViewService<S> {
             let kv_tx_clone = self.kv_tx.clone();
             // self.kv_cmd_tx_pool[rng.gen_range(0, self.num_kv_req_threads)].send(message).unwrap();
 
-            handlers.push(tokio::task::spawn(async move {Self::handle_message(message, state_view_clone, kv_tx_clone, 0);}));
+            handlers.push(tokio::task::spawn(async move {Self::handle_message(message, state_view_clone, kv_tx_clone, 0).await;}));
             //
             // thread_pool_clone
             //     .spawn(move || Self::handle_message(message, state_view_clone, kv_tx_clone, 0));
@@ -230,7 +230,7 @@ impl<S: StateView + Sync + Send + 'static> RemoteStateViewService<S> {
     //         }
     //     }
     // }
-    pub fn handle_message(
+    pub async fn handle_message(
         message: Message,
         state_view: Arc<RwLock<Option<Arc<S>>>>,
         kv_tx: Arc<Vec<Vec<Mutex<OutboundRpcHelper>>>>,
