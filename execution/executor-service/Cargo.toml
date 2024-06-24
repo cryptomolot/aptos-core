@@ -40,6 +40,8 @@ rand = { workspace = true }
 rayon = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
+futures = "0.3.30"
+tokio = {workspace = true}
 
 [dev-dependencies]
 aptos-language-e2e-tests = { workspace = true }
