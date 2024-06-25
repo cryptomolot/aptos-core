@@ -536,24 +536,24 @@ impl AptosVM {
                     txn_data.sender(),
                     traversal_context,
                 )
-                    // if this fails, it is likely due to out of gas, so we try again without metering
-                    // and then validate below that we charged sufficiently.
-                    .or_else(|_err| {
-                        create_account_if_does_not_exist(
-                            session,
-                            &mut UnmeteredGasMeter,
-                            txn_data.sender(),
-                            traversal_context,
-                        )
-                    })
-                    .map_err(expect_no_verification_errors)
-                    .or_else(|err| {
-                        expect_only_successful_execution(
-                            err,
-                            &format!("{:?}::{}", ACCOUNT_MODULE, CREATE_ACCOUNT_IF_DOES_NOT_EXIST),
-                            log_context,
-                        )
-                    })
+                // if this fails, it is likely due to out of gas, so we try again without metering
+                // and then validate below that we charged sufficiently.
+                .or_else(|_err| {
+                    create_account_if_does_not_exist(
+                        session,
+                        &mut UnmeteredGasMeter,
+                        txn_data.sender(),
+                        traversal_context,
+                    )
+                })
+                .map_err(expect_no_verification_errors)
+                .or_else(|err| {
+                    expect_only_successful_execution(
+                        err,
+                        &format!("{:?}::{}", ACCOUNT_MODULE, CREATE_ACCOUNT_IF_DOES_NOT_EXIST),
+                        log_context,
+                    )
+                })
             })?;
 
             let mut change_set = abort_hook_session.finish(change_set_configs)?;
