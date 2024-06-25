@@ -317,7 +317,7 @@ impl CoordinatorClient<RemoteStateViewClient> for RemoteCoordinatorClient {
             shard_id: usize,
             transactions: Vec<TransactionIdxAndOutput>,
         }
-        let num_recv_threads = 8;
+        let num_recv_threads = 1;
 
         if txn_idx_output.last().unwrap().txn_idx == u32::MAX {
             for thread_id in (0..num_recv_threads) {

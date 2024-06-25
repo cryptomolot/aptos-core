@@ -170,7 +170,7 @@ impl<S: StateView + Sync + Send + 'static> RemoteExecutorClient<S> {
         let cmd_tx_thread_pool = Arc::new(
             rayon::ThreadPoolBuilder::new()
                 .thread_name(move |index| format!("rmt-exe-cli-cmd-tx-{}", index))
-                .num_threads(16) //(num_cpus::get() / 2)
+                .num_threads(30) //(num_cpus::get() / 2)
                 .build()
                 .unwrap(),
         );
@@ -250,7 +250,7 @@ impl<S: StateView + Sync + Send + 'static> RemoteExecutorClient<S> {
             shard_id: usize,
             transactions: Vec<TransactionIdxAndOutput>,
         }
-        let num_recv_threads = 8;
+        let num_recv_threads = 1;
         let async_results: Vec<Vec<AsyncTransactionOutput>> = (0..num_recv_threads).into_par_iter().map(|channel_id| {
             let mut outputs = vec![];
             let mut can_break = false;
