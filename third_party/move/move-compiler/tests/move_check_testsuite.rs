@@ -29,6 +29,9 @@ const SKIP_ATTRIBUTE_CHECKS_PATH: &str = "/skip_attribute_checks/";
 /// Root of tests which require to set warn_of_deprecation_use flag
 const WARN_DEPRECATION_PATH: &str = "/deprecated/";
 
+/// Dirs enabling warnings_are_errors flag.
+const WARNINGS_ARE_ERRORS_PATH: &str = "/warnings-are-errors/";
+
 fn default_testing_addresses() -> BTreeMap<String, NumericalAddress> {
     let mapping = [
         ("aptos_std", "0x1"),
@@ -110,6 +113,9 @@ fn move_check_testsuite(path: &Path) -> datatest_stable::Result<()> {
         if p.contains(WARN_DEPRECATION_PATH) {
             flags = flags.set_warn_of_deprecation_use(true);
         }
+        if p.contains(WARNINGS_ARE_ERRORS_PATH) {
+            flags = flags.set_warnings_are_errors(true);
+        }
     };
     run_test(path, &exp_path, &out_path, flags)?;
     Ok(())
@@ -119,6 +125,7 @@ fn move_check_testsuite(path: &Path) -> datatest_stable::Result<()> {
 fn run_test(path: &Path, exp_path: &Path, out_path: &Path, flags: Flags) -> anyhow::Result<()> {
     let targets: Vec<String> = vec![path.to_str().unwrap().to_owned()];
 
+    let warnings_are_errors = flags.warnings_are_errors();
     let (files, comments_and_compiler_res) = Compiler::from_files(
         targets,
         move_stdlib::move_stdlib_files(),
@@ -127,7 +134,7 @@ fn run_test(path: &Path, exp_path: &Path, out_path: &Path, flags: Flags) -> anyh
         KnownAttribute::get_all_attribute_names(),
     )
     .run::<PASS_PARSER>()?;
-    let diags = move_check_for_errors(comments_and_compiler_res);
+    let diags = move_check_for_errors(comments_and_compiler_res, warnings_are_errors);
 
     let has_diags = !diags.is_empty();
     let diag_buffer = if has_diags {
@@ -187,6 +194,7 @@ fn run_test(path: &Path, exp_path: &Path, out_path: &Path, flags: Flags) -> anyh
 
 fn move_check_for_errors(
     comments_and_compiler_res: Result<(CommentMap, SteppedCompiler<'_, PASS_PARSER>), Diagnostics>,
+    warnings_are_errors: bool,
 ) -> Diagnostics {
     fn try_impl(
         comments_and_compiler_res: Result<
@@ -208,9 +216,13 @@ fn move_check_for_errors(
         Ok((units, inner_diags)) => (units, inner_diags),
         Err(inner_diags) => return inner_diags,
     };
-    let mut diags = move_compiler::compiled_unit::verify_units(&units);
-    diags.extend(inner_diags);
-    diags
+    if inner_diags.is_empty() || !warnings_are_errors {
+        let mut diags = move_compiler::compiled_unit::verify_units(&units);
+        diags.extend(inner_diags);
+        diags
+    } else {
+        inner_diags
+    }
 }
 
 datatest_stable::harness!(move_check_testsuite, "tests/move_check", r".*\.move$");
