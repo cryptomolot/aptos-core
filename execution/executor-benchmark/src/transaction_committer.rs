@@ -72,7 +72,7 @@ where
     pub fn run(&mut self) {
         let start_version = self.version;
         info!("Start with version: {}", start_version);
-
+        let mut iteration = 0;
         while let Ok(msg) = self.block_receiver.recv() {
             let CommitBlockMessage {
                 block_id,
@@ -93,7 +93,8 @@ where
             self.executor
                 .commit_blocks_ext(vec![block_id], ledger_info_with_sigs, false)
                 .unwrap();
-
+            info!("Commit in iteration {:?} took {:?}", iteration, commit_start.elapsed());
+            iteration += 1;
             report_block(
                 start_version,
                 self.version,

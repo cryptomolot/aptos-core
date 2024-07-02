@@ -129,14 +129,16 @@ where
         let partitioning_thread = std::thread::Builder::new()
             .name("block_partitioning".to_string())
             .spawn(move || {
+                let mut iteration =  0;
                 while let Ok(txns) = raw_block_receiver.recv() {
                     NUM_TXNS
                         .with_label_values(&["partition"])
                         .inc_by(txns.len() as u64);
                     let timer = Instant::now();
                     let exe_block_msg = partitioning_stage.process(txns);
-                    info!("Partitioning took {:?}", timer.elapsed());
+                    info!("Partitioning in iteration {:?} took {:?}", iteration, timer.elapsed());
                     executable_block_sender.send(exe_block_msg).unwrap();
+                    iteration += 1;
                 }
             })
             .expect("Failed to spawn block partitioner thread.");
@@ -152,7 +154,7 @@ where
                 let mut stage_index = 0;
                 let mut stage_overall_measuring = overall_measuring.clone();
                 let mut stage_executed = 0;
-
+                let iteration = 0;
                 while let Ok(msg) = executable_block_receiver.recv() {
                     let ExecuteBlockMessage {
                         current_block_start_time,
@@ -166,7 +168,9 @@ where
                     info!("Received block of size {:?} to execute", block_size);
                     executed += block_size;
                     stage_executed += block_size;
+                    let timer = Instant::now();
                     exe.execute_block(current_block_start_time, partition_time, block);
+                    info!("Execution in iteration {:?} took {:?}", iteration, timer.elapsed());
                     info!("Finished executing block");
 
                     // Empty blocks indicate the end of a stage.
@@ -202,13 +206,17 @@ where
         let ledger_update_thread = std::thread::Builder::new()
             .name("ledger_update".to_string())
             .spawn(move || {
+                let mut iteration = 0;
                 while let Ok(ledger_update_msg) = ledger_update_receiver.recv() {
                     let input_block_size =
                         ledger_update_msg.state_checkpoint_output.input_txns_len();
                     NUM_TXNS
                         .with_label_values(&["ledger_update"])
                         .inc_by(input_block_size as u64);
+                    let timer = Instant::now();
                     ledger_update_stage.ledger_update(ledger_update_msg);
+                    info!("Ledger update in iteration {:?} took {:?}", iteration, timer.elapsed());
+                    iteration += 1;
                 }
             })
             .expect("Failed to spawn ledger update thread.");
