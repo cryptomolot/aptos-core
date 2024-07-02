@@ -101,7 +101,7 @@ pub struct BuildOptions {
     pub known_attributes: BTreeSet<String>,
     #[clap(long = WARN_UNUSED_FLAG, default_value="false")]
     pub warn_unused: bool,
-    #[clap(long = MOVE_COMPILER_WARNINGS_ARE_ERRORS_FLAG, bool_to_str(move_compilers_warnings_are_errors_env_var()))]
+    #[clap(long = MOVE_COMPILER_WARNINGS_ARE_ERRORS_FLAG, default_value=bool_to_str(move_compiler_warnings_are_errors_env_var()))]
     pub warnings_are_errors: bool,
 }
 
