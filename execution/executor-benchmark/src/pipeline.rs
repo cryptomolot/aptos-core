@@ -99,9 +99,23 @@ where
             (None, None)
         };
 
+        let (start_execution_tx_dummy, start_execution_rx_dummy) = if config.delay_execution_start {
+            let (start_execution_tx, start_execution_rx) = mpsc::sync_channel::<()>(1);
+            (Some(start_execution_tx), Some(start_execution_rx))
+        } else {
+            (None, None)
+        };
+
         let (start_commit_tx, start_commit_rx) = if config.split_stages || config.skip_commit {
             let (start_commit_tx, start_commit_rx) = mpsc::sync_channel::<()>(1);
             (Some(start_commit_tx), Some(start_commit_rx))
+        } else {
+            (None, None)
+        };
+
+        let (start_ledger_update_tx, start_ledger_update_rx) = if config.split_stages || config.skip_commit {
+            let (start_ledger_update_tx, start_ledger_update_rx) = mpsc::sync_channel::<()>(1);
+            (Some(start_ledger_update_tx), Some(start_ledger_update_rx))
         } else {
             (None, None)
         };
@@ -140,10 +154,11 @@ where
                     executable_block_sender.send(exe_block_msg).unwrap();
                     iteration += 1;
                 }
+                start_execution_tx.map(|tx| tx.send(()));
             })
             .expect("Failed to spawn block partitioner thread.");
-        //join_handles.push(partitioning_thread);
-        partitioning_thread.join().unwrap();
+        join_handles.push(partitioning_thread);
+
         let exe_thread = std::thread::Builder::new()
             .name("txn_executor".to_string())
             .spawn(move || {
@@ -200,14 +215,16 @@ where
 
                 overall_measuring.print_end("Overall execution", executed);
                 start_commit_tx.map(|tx| tx.send(()));
+                start_ledger_update_tx.map(|tx| tx.send(()));
             })
             .expect("Failed to spawn transaction executor thread.");
-        //join_handles.push(exe_thread);
-        exe_thread.join().unwrap();
+        join_handles.push(exe_thread);
+        //exe_thread.join().unwrap();
 
         let ledger_update_thread = std::thread::Builder::new()
             .name("ledger_update".to_string())
             .spawn(move || {
+                start_ledger_update_rx.map(|rx| rx.recv());
                 let mut iteration = 0;
                 while let Ok(ledger_update_msg) = ledger_update_receiver.recv() {
                     let input_block_size =
@@ -222,8 +239,7 @@ where
                 }
             })
             .expect("Failed to spawn ledger update thread.");
-        //join_handles.push(ledger_update_thread);
-        ledger_update_thread.join().unwrap();
+        join_handles.push(ledger_update_thread);
 
         let skip_commit = config.skip_commit;
 
@@ -239,14 +255,13 @@ where
                 }
             })
             .expect("Failed to spawn transaction committer thread.");
-        // join_handles.push(commit_thread);
-        commit_thread.join().unwrap();
+        join_handles.push(commit_thread);
 
         (
             Self {
                 join_handles,
                 phantom: PhantomData,
-                start_execution_tx,
+                start_execution_tx: start_execution_tx_dummy,
             },
             raw_block_sender,
         )
