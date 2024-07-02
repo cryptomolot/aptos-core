@@ -133,7 +133,9 @@ where
                     NUM_TXNS
                         .with_label_values(&["partition"])
                         .inc_by(txns.len() as u64);
+                    let timer = Instant::now();
                     let exe_block_msg = partitioning_stage.process(txns);
+                    info!("Partitioning took {:?}", timer.elapsed());
                     executable_block_sender.send(exe_block_msg).unwrap();
                 }
             })
