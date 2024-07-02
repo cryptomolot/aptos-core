@@ -24,6 +24,8 @@ use std::{
     thread::JoinHandle,
     time::{Duration, Instant},
 };
+use std::future::join;
+use rayon::join;
 
 #[derive(Debug, Derivative)]
 #[derivative(Default)]
@@ -124,7 +126,7 @@ where
             LedgerUpdateStage::new(executor_2, Some(commit_sender), version);
 
         let (executable_block_sender, executable_block_receiver) =
-            mpsc::sync_channel::<ExecuteBlockMessage>(3);
+            mpsc::sync_channel::<ExecuteBlockMessage>(200);
 
         let partitioning_thread = std::thread::Builder::new()
             .name("block_partitioning".to_string())
@@ -142,8 +144,8 @@ where
                 }
             })
             .expect("Failed to spawn block partitioner thread.");
-        join_handles.push(partitioning_thread);
-
+        //join_handles.push(partitioning_thread);
+        partitioning_thread.join().unwrap();
         let exe_thread = std::thread::Builder::new()
             .name("txn_executor".to_string())
             .spawn(move || {
@@ -154,7 +156,7 @@ where
                 let mut stage_index = 0;
                 let mut stage_overall_measuring = overall_measuring.clone();
                 let mut stage_executed = 0;
-                let iteration = 0;
+                let mut iteration = 0;
                 while let Ok(msg) = executable_block_receiver.recv() {
                     let ExecuteBlockMessage {
                         current_block_start_time,
@@ -171,6 +173,7 @@ where
                     let timer = Instant::now();
                     exe.execute_block(current_block_start_time, partition_time, block);
                     info!("Execution in iteration {:?} took {:?}", iteration, timer.elapsed());
+                    iteration += 1;
                     info!("Finished executing block");
 
                     // Empty blocks indicate the end of a stage.
@@ -201,7 +204,8 @@ where
                 start_commit_tx.map(|tx| tx.send(()));
             })
             .expect("Failed to spawn transaction executor thread.");
-        join_handles.push(exe_thread);
+        //join_handles.push(exe_thread);
+        exe_thread.join().unwrap();
 
         let ledger_update_thread = std::thread::Builder::new()
             .name("ledger_update".to_string())
@@ -220,7 +224,8 @@ where
                 }
             })
             .expect("Failed to spawn ledger update thread.");
-        join_handles.push(ledger_update_thread);
+        //join_handles.push(ledger_update_thread);
+        ledger_update_thread.join().unwrap();
 
         let skip_commit = config.skip_commit;
 
@@ -236,8 +241,9 @@ where
                 }
             })
             .expect("Failed to spawn transaction committer thread.");
-        join_handles.push(commit_thread);
-
+        // join_handles.push(commit_thread);
+        commit_thread.join().unwrap();
+        
         (
             Self {
                 join_handles,
