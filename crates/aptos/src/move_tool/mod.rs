@@ -209,24 +209,30 @@ impl FrameworkPackageArgs {
         // Add the framework dependency if it's provided
         let mut dependencies = BTreeMap::new();
         if let Some(ref path) = self.framework_local_dir {
-            dependencies.insert(APTOS_FRAMEWORK.to_string(), Dependency {
-                local: Some(path.display().to_string()),
-                git: None,
-                rev: None,
-                subdir: None,
-                aptos: None,
-                address: None,
-            });
+            dependencies.insert(
+                APTOS_FRAMEWORK.to_string(),
+                Dependency {
+                    local: Some(path.display().to_string()),
+                    git: None,
+                    rev: None,
+                    subdir: None,
+                    aptos: None,
+                    address: None,
+                },
+            );
         } else {
             let git_rev = self.framework_git_rev.as_deref().unwrap_or(DEFAULT_BRANCH);
-            dependencies.insert(APTOS_FRAMEWORK.to_string(), Dependency {
-                local: None,
-                git: Some(APTOS_GIT_PATH.to_string()),
-                rev: Some(git_rev.to_string()),
-                subdir: Some(SUBDIR_PATH.to_string()),
-                aptos: None,
-                address: None,
-            });
+            dependencies.insert(
+                APTOS_FRAMEWORK.to_string(),
+                Dependency {
+                    local: None,
+                    git: Some(APTOS_GIT_PATH.to_string()),
+                    rev: Some(git_rev.to_string()),
+                    subdir: Some(SUBDIR_PATH.to_string()),
+                    aptos: None,
+                    address: None,
+                },
+            );
         }
 
         let manifest = MovePackageManifest {
@@ -749,7 +755,6 @@ impl TryInto<PackagePublicationData> for &PublishPackage {
                 self.move_options.language_version,
                 self.move_options.skip_attribute_checks,
                 self.move_options.check_test_code,
-                self.move_options.warn_unused,
                 self.move_options.warnings_are_errors,
             );
         let package = BuiltPackage::build(package_path, options)
@@ -823,7 +828,6 @@ impl IncludedArtifacts {
         language_version: Option<LanguageVersion>,
         skip_attribute_checks: bool,
         check_test_code: bool,
-        warn_unused: bool,
         warnings_are_errors: bool,
     ) -> BuildOptions {
         use IncludedArtifacts::*;
@@ -843,7 +847,6 @@ impl IncludedArtifacts {
                 language_version,
                 skip_attribute_checks,
                 check_test_code,
-                warn_unused,
                 warnings_are_errors,
                 known_attributes: extended_checks::get_all_attribute_names().clone(),
                 ..BuildOptions::default()
@@ -862,7 +865,6 @@ impl IncludedArtifacts {
                 language_version,
                 skip_attribute_checks,
                 check_test_code,
-                warn_unused,
                 warnings_are_errors,
                 known_attributes: extended_checks::get_all_attribute_names().clone(),
                 ..BuildOptions::default()
@@ -881,7 +883,6 @@ impl IncludedArtifacts {
                 language_version,
                 skip_attribute_checks,
                 check_test_code,
-                warn_unused,
                 warnings_are_errors,
                 known_attributes: extended_checks::get_all_attribute_names().clone(),
                 ..BuildOptions::default()
@@ -1005,7 +1006,6 @@ impl CliCommand<TransactionSummary> for CreateObjectAndPublishPackage {
                 self.move_options.language_version,
                 self.move_options.skip_attribute_checks,
                 self.move_options.check_test_code,
-                self.move_options.warn_unused,
                 self.move_options.warnings_are_errors,
             );
         let package = BuiltPackage::build(self.move_options.get_package_path()?, options)?;
@@ -1085,7 +1085,6 @@ impl CliCommand<TransactionSummary> for UpgradeObjectPackage {
                 self.move_options.language_version,
                 self.move_options.skip_attribute_checks,
                 self.move_options.check_test_code,
-                self.move_options.warn_unused,
                 self.move_options.warnings_are_errors,
             );
         let built_package = BuiltPackage::build(self.move_options.get_package_path()?, options)?;
@@ -1213,7 +1212,6 @@ impl CliCommand<TransactionSummary> for CreateResourceAccountAndPublishPackage {
             move_options.language_version,
             move_options.skip_attribute_checks,
             move_options.check_test_code,
-            move_options.warn_unused,
             move_options.warnings_are_errors,
         );
         let package = BuiltPackage::build(package_path, options)?;
@@ -1368,7 +1366,6 @@ impl CliCommand<&'static str> for VerifyPackage {
                 self.move_options.language_version,
                 self.move_options.skip_attribute_checks,
                 self.move_options.check_test_code,
-                self.move_options.warn_unused,
                 self.move_options.warnings_are_errors,
             )
         };

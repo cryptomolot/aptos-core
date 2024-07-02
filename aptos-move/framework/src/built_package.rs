@@ -19,7 +19,7 @@ use itertools::Itertools;
 use move_binary_format::CompiledModule;
 use move_command_line_common::{env::bool_to_str, files::MOVE_COMPILED_EXTENSION};
 use move_compiler::{
-    command_line::{MOVE_COMPILER_WARNINGS_ARE_ERRORS_FLAG, WARN_UNUSED_FLAG},
+    command_line::{MOVE_COMPILER_WARNINGS_ARE_ERRORS_FLAG},
     compiled_unit::{CompiledUnit, NamedCompiledModule},
     shared::move_compiler_warnings_are_errors_env_var,
 };
@@ -99,8 +99,6 @@ pub struct BuildOptions {
     pub check_test_code: bool,
     #[clap(skip)]
     pub known_attributes: BTreeSet<String>,
-    #[clap(long = WARN_UNUSED_FLAG, default_value="false")]
-    pub warn_unused: bool,
     #[clap(long = MOVE_COMPILER_WARNINGS_ARE_ERRORS_FLAG, default_value=bool_to_str(move_compiler_warnings_are_errors_env_var()))]
     pub warnings_are_errors: bool,
 }
@@ -130,7 +128,6 @@ impl Default for BuildOptions {
             check_test_code: false,
             known_attributes: extended_checks::get_all_attribute_names().clone(),
             warnings_are_errors: move_compiler_warnings_are_errors_env_var(),
-            warn_unused: false,
         }
     }
 }
