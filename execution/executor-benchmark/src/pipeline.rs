@@ -24,8 +24,6 @@ use std::{
     thread::JoinHandle,
     time::{Duration, Instant},
 };
-use std::future::join;
-use rayon::join;
 
 #[derive(Debug, Derivative)]
 #[derivative(Default)]
@@ -243,7 +241,7 @@ where
             .expect("Failed to spawn transaction committer thread.");
         // join_handles.push(commit_thread);
         commit_thread.join().unwrap();
-        
+
         (
             Self {
                 join_handles,
