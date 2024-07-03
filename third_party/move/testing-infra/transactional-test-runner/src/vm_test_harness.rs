@@ -555,14 +555,11 @@ pub fn run_test_with_config(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let (suffix, config) =
         if get_move_compiler_v2_from_env() && !matches!(config, TestRunConfig::CompilerV2 { .. }) {
-            (
-                Some(EXP_EXT_V2.to_owned()),
-                TestRunConfig::CompilerV2 {
-                    language_version: LanguageVersion::default(),
-                    v2_experiments: vec![],
-                    warnings_are_errors: config.get_warnings_are_errors(),
-                },
-            )
+            (Some(EXP_EXT_V2.to_owned()), TestRunConfig::CompilerV2 {
+                language_version: LanguageVersion::default(),
+                v2_experiments: vec![],
+                warnings_are_errors: config.get_warnings_are_errors(),
+            })
         } else {
             (Some(EXP_EXT.to_owned()), config)
         };
