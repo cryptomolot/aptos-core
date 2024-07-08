@@ -141,6 +141,12 @@ impl RemoteCoordinatorClient {
                     let is_block_init_done_clone = is_block_init_done.clone();
                     let cmd_rx_thread_pool_clone = cmd_rx_thread_pool.clone();
 
+                    num_txns_processed += message.data_length.unwrap().clone() as usize;
+                    info!("txns considered is ********* {}; num txns in block {}", num_txns_processed, num_txns_in_the_block);
+                    if num_txns_processed == num_txns_in_the_block {
+                        is_block_init_done_clone.store(false, std::sync::atomic::Ordering::Relaxed);
+                        break_out = true;
+                    }
 
                     cmd_rx_thread_pool_clone.spawn(move || {
                         let delta = get_delta_time(message.start_ms_since_epoch.unwrap());
@@ -157,12 +163,6 @@ impl RemoteCoordinatorClient {
                         drop(bcs_deser_timer);
 
                         let transactions = txns.cmds;
-                        num_txns_processed += transactions.len();
-                        info!("txns considered is ********* {}; num txns in block {}", num_txns_processed, num_txns_in_the_block);
-                        if num_txns_processed == num_txns_in_the_block {
-                            is_block_init_done_clone.store(false, std::sync::atomic::Ordering::Relaxed);
-                            break_out = true;
-                        }
 
                         let init_prefetch_timer = REMOTE_EXECUTOR_TIMER
                             .with_label_values(&[&shard_id.to_string(), "init_prefetch"])
