@@ -206,10 +206,12 @@ impl RemoteStateViewClient {
         if curr_time > duration_since_epoch {
             delta = (curr_time - duration_since_epoch) as f64;
         }
+        let mut rng = StdRng::from_entropy();
+        let num_channels = 4;
         REMOTE_EXECUTOR_RND_TRP_JRNY_TIMER
             .with_label_values(&["0_kv_req_grpc_shard_send_1_lock_acquired"]).observe(delta);
         sender_lk.send(Message::create_with_metadata(request_message, duration_since_epoch, seq_num, shard_id as u64),
-                       &MessageType::new(format!("remote_kv_request_{}", shard_id)));
+                       &MessageType::new(format!("remote_kv_request_{}", rng.gen_range(0, num_channels))));
     }
 }
 

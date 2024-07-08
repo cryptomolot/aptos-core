@@ -336,6 +336,16 @@ impl<S: StateView + Sync + Send + 'static> ExecutorClient<S> for RemoteExecutorC
         // NOTE: sending transactions to shards
         let max_batch_size = chunked_txs.iter().map(|txs| txs.len()).max().unwrap();
         let chunked_txs_arc = Arc::new(chunked_txs.clone());
+        // for shard_id in 0..self.num_shards() {
+        //     let senders = self.command_txs.clone();
+        //     let msg = Message::create_with_metadata(bcs::to_bytes(&vec![]).unwrap(), duration_since_epoch, chunked_txs[shard_id].len() as u64, 0);
+        //     let execute_command_type = format!("execute_command_{}", shard_id);
+        //     senders[shard_id][0]
+        //         .lock()
+        //         .unwrap()
+        //         .send(msg, &MessageType::new(execute_command_type));
+        // }
+
         for chunk_idx in 0..max_batch_size {
             for shard_id in 0..self.num_shards() {
                 if (chunk_idx >= chunked_txs[shard_id].len()) {
@@ -363,7 +373,7 @@ impl<S: StateView + Sync + Send + 'static> ExecutorClient<S> for RemoteExecutorC
                     let bcs_ser_timer = REMOTE_EXECUTOR_TIMER
                         .with_label_values(&["0", "cmd_tx_bcs_ser"])
                         .start_timer();
-                    let msg = Message::create_with_metadata_with_length(bcs::to_bytes(&execution_batch_req).unwrap(), duration_since_epoch, 0, 0, shard_txns.len() as u64);
+                    let msg = Message::create_with_metadata(bcs::to_bytes(&execution_batch_req).unwrap(), duration_since_epoch, 0, 0);
                     drop(bcs_ser_timer);
                     REMOTE_EXECUTOR_CMD_RESULTS_RND_TRP_JRNY_TIMER
                         .with_label_values(&["1_cmd_tx_msg_send"]).observe(get_delta_time(duration_since_epoch) as f64);
