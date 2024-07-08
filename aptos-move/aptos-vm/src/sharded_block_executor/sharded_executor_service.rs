@@ -307,8 +307,8 @@ impl<S: StateView + Sync + Send + 'static> ShardedExecutorService<S> {
                 loop {
                     let txn_idx_output: TransactionIdxAndOutput = stream_results_rx.recv().unwrap();
                     if txn_idx_output.txn_idx == u32::MAX {
-                        curr_batch.push(txn_idx_output);
                         coordinator_client_clone.lock().unwrap().stream_execution_result(curr_batch);
+                        coordinator_client_clone.lock().unwrap().stream_execution_result(vec![txn_idx_output]);
                         break;
                     }
                     curr_batch.push(txn_idx_output);
