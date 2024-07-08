@@ -26,7 +26,7 @@ use aptos_secure_net::grpc_network_service::outbound_rpc_helper::OutboundRpcHelp
 use aptos_secure_net::network_controller::metrics::REMOTE_EXECUTOR_RND_TRP_JRNY_TIMER;
 
 pub struct RemoteStateViewService<S: StateView + Sync + Send + 'static> {
-    kv_rx: Receiver<Message>,
+    kv_rx: Vec<Arc<Receiver<Message>>>,
     kv_unprocessed_pq: Arc<ConcurrentPriorityQueue<Message, u64>>,
     kv_tx: Arc<Vec<Vec<tokio::sync::Mutex<OutboundRpcHelper>>>>,
     //thread_pool: Arc<Vec<rayon::ThreadPool>>,
@@ -65,7 +65,11 @@ impl<S: StateView + Sync + Send + 'static> RemoteStateViewService<S> {
             .unwrap();
         let kv_request_type = "remote_kv_request";
         let kv_response_type = "remote_kv_response";
-        let result_rx = controller.create_inbound_channel(kv_request_type.to_string());
+        let mut result_rx = vec![];
+        for shard in 0..num_shards {
+            result_rx.push(Arc::new(controller.create_inbound_channel(format!("remote_kv_request_{}", shard))));
+        }
+        //    controller.create_inbound_channel(kv_request_type.to_string());
         let command_txs = remote_shard_addresses
             .iter()
             .map(|address| {
@@ -117,31 +121,48 @@ impl<S: StateView + Sync + Send + 'static> RemoteStateViewService<S> {
                                        outbound_rpc_runtime_clone)
             });
         }
-        while let Ok(message) = self.kv_rx.recv() {
-            let curr_time = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis() as u64;
-            let mut delta = 0.0;
-            if curr_time > message.start_ms_since_epoch.unwrap() {
-                delta = (curr_time - message.start_ms_since_epoch.unwrap()) as f64;
-            }
-            REMOTE_EXECUTOR_RND_TRP_JRNY_TIMER
-                .with_label_values(&["2_kv_req_coord_grpc_recv_spawning_req_handler"]).observe(delta);
+        let kv_rx_thread_pool = rayon::ThreadPoolBuilder::new()
+            .num_threads(self.kv_rx.len())
+            .thread_name(|i| format!("remote-state-view-service-kv-request-relayer-{}", i))
+            .build()
+            .unwrap();
 
-            let _timer = REMOTE_EXECUTOR_TIMER
-                .with_label_values(&["0", "kv_requests_handler_timer"])
-                .start_timer();
+        for shard_id in 0..self.kv_rx.len() {
+            let kv_rx_clone = self.kv_rx[shard_id].clone();
+            let kv_unprocessed_pq_clone = self.kv_unprocessed_pq.clone();
+            let recv_condition_clone = self.recv_condition.clone();
+            kv_rx_thread_pool.spawn(move || {
+                let base = 1000000;
+                let mut cnt = 0;
+                while let Ok(message) = kv_rx_clone.recv() {
+                    let curr_time = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis() as u64;
+                    let mut delta = 0.0;
+                    if curr_time > message.start_ms_since_epoch.unwrap() {
+                        delta = (curr_time - message.start_ms_since_epoch.unwrap()) as f64;
+                    }
+                    REMOTE_EXECUTOR_RND_TRP_JRNY_TIMER
+                        .with_label_values(&["2_kv_req_coord_grpc_recv_spawning_req_handler"]).observe(delta);
 
-            let priority = message.seq_num.unwrap();
-            {
-                let (lock, cvar) = &*self.recv_condition;
-                let _lg = lock.lock().unwrap();
-                self.kv_unprocessed_pq.push(message, priority);
-                //self.recv_condition.1.notify_all();
-                self.recv_condition.1.notify_one();
-            }
-            REMOTE_EXECUTOR_TIMER
-                .with_label_values(&["0", "kv_req_pq_size"])
-                .observe(self.kv_unprocessed_pq.len() as f64);
+                    let _timer = REMOTE_EXECUTOR_TIMER
+                        .with_label_values(&["0", "kv_requests_handler_timer"])
+                        .start_timer();
+
+                    let priority = message.seq_num.unwrap() * base + cnt;
+                    {
+                        let (lock, cvar) = &*recv_condition_clone;
+                        let _lg = lock.lock().unwrap();
+                        kv_unprocessed_pq_clone.push(message, priority);
+                        //self.recv_condition.1.notify_all();
+                        recv_condition_clone.1.notify_one();
+                    }
+                    cnt += 1;
+                    REMOTE_EXECUTOR_TIMER
+                        .with_label_values(&["0", "kv_req_pq_size"])
+                        .observe(kv_unprocessed_pq_clone.len() as f64);
+                }
+            });
         }
+
     }
 
     // pub fn priority_handler(state_view: Arc<RwLock<Option<Arc<S>>>>,
