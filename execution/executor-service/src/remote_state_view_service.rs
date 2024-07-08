@@ -132,8 +132,8 @@ impl<S: StateView + Sync + Send + 'static> RemoteStateViewService<S> {
             let kv_unprocessed_pq_clone = self.kv_unprocessed_pq.clone();
             let recv_condition_clone = self.recv_condition.clone();
             kv_rx_thread_pool.spawn(move || {
-                let base = 1000000;
-                let mut cnt = 0;
+                // let base = 1000000;
+                // let mut cnt = 0;
                 while let Ok(message) = kv_rx_clone.recv() {
                     let curr_time = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis() as u64;
                     let mut delta = 0.0;
@@ -147,7 +147,7 @@ impl<S: StateView + Sync + Send + 'static> RemoteStateViewService<S> {
                         .with_label_values(&["0", "kv_requests_handler_timer"])
                         .start_timer();
 
-                    let priority = message.seq_num.unwrap() * base + cnt;
+                    let priority = message.seq_num.unwrap(); // * base + cnt;
                     {
                         let (lock, cvar) = &*recv_condition_clone;
                         let _lg = lock.lock().unwrap();
@@ -155,7 +155,7 @@ impl<S: StateView + Sync + Send + 'static> RemoteStateViewService<S> {
                         //self.recv_condition.1.notify_all();
                         recv_condition_clone.1.notify_one();
                     }
-                    cnt += 1;
+                    //cnt += 1;
                     REMOTE_EXECUTOR_TIMER
                         .with_label_values(&["0", "kv_req_pq_size"])
                         .observe(kv_unprocessed_pq_clone.len() as f64);

@@ -239,7 +239,7 @@ impl<S: StateView + Sync + Send + 'static> RemoteExecutorClient<S> {
             shard_id: usize,
             transactions: Vec<TransactionIdxAndOutput>,
         }
-        let num_recv_threads = 30;
+        let num_recv_threads = 12;
         let async_results: Vec<Vec<AsyncTransactionOutput>> = (0..num_recv_threads).into_par_iter().map(|channel_id| {
             let mut outputs = vec![];
             let mut can_break = false;
