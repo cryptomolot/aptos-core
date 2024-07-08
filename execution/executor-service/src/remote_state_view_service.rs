@@ -67,7 +67,7 @@ impl<S: StateView + Sync + Send + 'static> RemoteStateViewService<S> {
         let kv_response_type = "remote_kv_response";
         let recv_channels = 0;
         let mut result_rx = vec![];
-        for shard in 0..recv_channels {
+        for shard in 0..=recv_channels {
             result_rx.push(Arc::new(controller.create_inbound_channel(format!("remote_kv_request_{}", shard))));
         }
         //    controller.create_inbound_channel(kv_request_type.to_string());

@@ -198,7 +198,7 @@ def run_sessions_on_instances(instances, username, private_key_path):
     threads = []
     i = 0
     for instance in instances:
-        thread = threading.Thread(target=instance_session, args=(instance, username, private_key_path, close_event,  [i]))
+        thread = threading.Thread(target=instance_session, args=(instance, username, private_key_path, close_event, commands16shards[i]))
         thread.start()
         threads.append(thread)
         i = i + 1
