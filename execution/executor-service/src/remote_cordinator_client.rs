@@ -16,6 +16,9 @@ use std::{net::SocketAddr, sync::Arc, thread};
 use std::ops::AddAssign;
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize};
 use std::sync::Mutex;
+use rand::rngs::StdRng;
+use rand::{Rng, SeedableRng};
+use serde::Serialize;
 use aptos_logger::info;
 use aptos_secure_net::grpc_network_service::outbound_rpc_helper::OutboundRpcHelper;
 use aptos_secure_net::network_controller::metrics::{get_delta_time, REMOTE_EXECUTOR_CMD_RESULTS_RND_TRP_JRNY_TIMER};
@@ -305,11 +308,28 @@ impl CoordinatorClient<RemoteStateViewClient> for RemoteCoordinatorClient {
         self.result_tx.send(Message::create_with_metadata(output_message, duration_since_epoch, 0, 0), &MessageType::new(execute_result_type));
     }
 
+    // Implements sending results on a random channel to the coordinator
     fn stream_execution_result(&mut self, txn_idx_output: Vec<TransactionIdxAndOutput>) {
-        //info!("Sending output to coordinator for txn_idx: {:?}", txn_idx_output.txn_idx);
-        let execute_result_type = format!("execute_result_{}", self.shard_id);
-        let output_message = bcs::to_bytes(&txn_idx_output).unwrap();
-        self.result_tx.send(Message::new(output_message), &MessageType::new(execute_result_type));
+        #[derive(Serialize)]
+        struct AsyncTransactionOutput {
+            shard_id: usize,
+            transactions: Vec<TransactionIdxAndOutput>,
+        }
+        let num_recv_threads = 30;
+
+        if txn_idx_output.last().unwrap().txn_idx == u32::MAX {
+            for thread_id in (0..num_recv_threads) {
+                let execute_result_type = format!("execute_result_{}", thread_id);
+                let output_message = bcs::to_bytes(&AsyncTransactionOutput { shard_id: self.shard_id, transactions: txn_idx_output.clone() }).unwrap();
+                self.result_tx.send(Message::new(output_message), &MessageType::new(execute_result_type));
+            }
+        } else {
+            let output_message = bcs::to_bytes(&AsyncTransactionOutput { shard_id: self.shard_id, transactions: txn_idx_output }).unwrap();
+            let mut rng = StdRng::from_entropy();
+            let rand_recv_thread = rng.gen_range(0, num_recv_threads);
+            let execute_result_type = format!("execute_result_{}", rand_recv_thread);
+            self.result_tx.send(Message::new(output_message), &MessageType::new(execute_result_type));
+        }
     }
 
     fn record_execution_complete_time_on_shard(&self) {
