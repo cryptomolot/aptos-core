@@ -50,7 +50,10 @@ use async_trait::async_trait;
 use clap::{Parser, ValueEnum};
 use hex::FromHexError;
 use move_command_line_common::env::bool_to_str;
-use move_compiler::{command_line::MOVE_COMPILER_WARNINGS_ARE_ERRORS_FLAG, shared::move_compiler_warnings_are_errors_env_var};
+use move_compiler::{
+    command_line::MOVE_COMPILER_WARNINGS_ARE_ERRORS_FLAG,
+    shared::move_compiler_warnings_are_errors_env_var,
+};
 use move_core_types::{
     account_address::AccountAddress, language_storage::TypeTag, vm_status::VMStatus,
 };
