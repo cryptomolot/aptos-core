@@ -99,8 +99,10 @@ impl<S: StateView + Sync + Send + 'static> RemoteStateViewService<S> {
             .unwrap();
         let kv_request_type = "remote_kv_request";
         let kv_response_type = "remote_kv_response";
+
+        let num_kv_rx_threads = 4;
         let mut result_rx = vec![];
-        for i in 0..num_shards {
+        for i in 0..num_kv_rx_threads {
             result_rx.push(Arc::new(controller.create_inbound_channel(format!("remote_kv_request_{}", i))));
         }
         let command_txs = remote_shard_addresses
@@ -157,7 +159,8 @@ impl<S: StateView + Sync + Send + 'static> RemoteStateViewService<S> {
                                        i)
             });
         }
-        for i in 0..self.num_shards {
+
+        for i in 0..self.kv_rx.len() {
             let kv_rx_clone = self.kv_rx[i].clone();
             let kv_unprocessed_pq_clone = self.kv_unprocessed_pq.clone();
             let recv_condition_clone = self.recv_condition.clone();
