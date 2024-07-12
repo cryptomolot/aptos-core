@@ -218,7 +218,7 @@ impl RemoteStateViewClient {
         if seq_num >= 6200 {
             info!("Send first batch from a shard with seq_num {} at time {}", seq_num, curr_time);
         }
-        let num_kv_rx_threads = 4;
+        let num_kv_rx_threads = 12;
         let mut rng = StdRng::from_entropy();
         sender_lk.send(Message::create_with_metadata(request_message, duration_since_epoch, seq_num, shard_id as u64),
                        &MessageType::new(format!("remote_kv_request_{}", rng.gen_range(0, num_kv_rx_threads))));
