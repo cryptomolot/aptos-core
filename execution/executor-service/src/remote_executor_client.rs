@@ -112,7 +112,7 @@ impl<S: StateView + Sync + Send + 'static> RemoteExecutorClient<S> {
         let num_threads = num_threads.unwrap_or_else(num_cpus::get);
         let thread_pool = Arc::new(
             rayon::ThreadPoolBuilder::new()
-                .num_threads(16)
+                .num_threads(12)
                 .build()
                 .unwrap(),
         );
@@ -343,7 +343,7 @@ impl<S: StateView + Sync + Send + 'static> ExecutorClient<S> for RemoteExecutorC
             .with_label_values(&["0_cmd_tx_start"]).observe(get_delta_time(duration_since_epoch) as f64);
 
         let mut expected_outputs = vec![0; self.num_shards()];
-        let batch_size = 400;
+        let batch_size = 200;
         // // let time = Instant::now();
         // let mut chunked_txs = vec![vec![]; self.num_shards()];
         // for (shard_id, _) in sub_blocks.into_iter().enumerate() {
