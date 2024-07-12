@@ -100,7 +100,7 @@ impl<S: StateView + Sync + Send + 'static> RemoteStateViewService<S> {
         let kv_request_type = "remote_kv_request";
         let kv_response_type = "remote_kv_response";
 
-        let num_kv_rx_threads = 24;
+        let num_kv_rx_threads = 12;
         let mut result_rx = vec![];
         for i in 0..num_kv_rx_threads {
             result_rx.push(Arc::new(controller.create_inbound_channel(format!("remote_kv_request_{}", i))));
