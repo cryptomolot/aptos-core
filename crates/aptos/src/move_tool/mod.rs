@@ -21,6 +21,7 @@ use crate::{
     move_tool::{
         bytecode::{Decompile, Disassemble},
         coverage::SummaryCoverage,
+        fmt::Fmt,
         manifest::{Dependency, ManifestNamedAddress, MovePackageManifest, PackageInfo},
     },
     CliCommand, CliResult,
@@ -71,6 +72,7 @@ use url::Url;
 mod aptos_debug_natives;
 mod bytecode;
 pub mod coverage;
+mod fmt;
 mod manifest;
 pub mod package_hooks;
 mod show;
@@ -116,6 +118,7 @@ pub enum MoveTool {
     VerifyPackage(VerifyPackage),
     View(ViewFunction),
     Replay(Replay),
+    Fmt(Fmt),
 }
 
 impl MoveTool {
@@ -148,6 +151,7 @@ impl MoveTool {
             MoveTool::VerifyPackage(tool) => tool.execute_serialized().await,
             MoveTool::View(tool) => tool.execute_serialized().await,
             MoveTool::Replay(tool) => tool.execute_serialized().await,
+            MoveTool::Fmt(tool) => tool.execute_serialized().await,
         }
     }
 }
