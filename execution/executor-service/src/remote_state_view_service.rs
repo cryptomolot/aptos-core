@@ -139,8 +139,8 @@ impl<S: StateView + Sync + Send + 'static> RemoteStateViewService<S> {
     }
     pub fn start(&self) {
         //let (signal_tx, signal_rx) = unbounded();
-        let thread_pool_clone = 2 * self.thread_pool.clone();
-        let num_handlers = self.num_shards;
+        let thread_pool_clone = self.thread_pool.clone();
+        let num_handlers = 2 * self.num_shards;
         info!("Num handlers created is {}", num_handlers);
         for i in 0..num_handlers {
             let state_view_clone = self.state_view.clone();
