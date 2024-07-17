@@ -348,7 +348,7 @@ impl<S: StateView + Sync + Send + 'static> ExecutorClient<S> for RemoteExecutorC
             .with_label_values(&["0_cmd_tx_start"]).observe(get_delta_time(duration_since_epoch) as f64);
 
         let mut expected_outputs = vec![0; self.num_shards()];
-        let batch_size = 200;
+        let batch_size = 50;
         // let time = Instant::now();
         // let mut chunked_txs = vec![vec![]; self.num_shards()];
         // for (shard_id, _) in sub_blocks.into_iter().enumerate() {
