@@ -68,7 +68,7 @@ impl<S: StateView + Sync + Send + 'static> RemoteStateViewService<S> {
         remote_shard_addresses: Vec<SocketAddr>,
         num_threads: Option<usize>,
     ) -> Self {
-        let num_threads = 48; // 3 * remote_shard_addresses.len();//remote_shard_addresses.len() * 2; //num_threads.unwrap_or_else(num_cpus::get);
+        let num_threads = 24; // 3 * remote_shard_addresses.len();//remote_shard_addresses.len() * 2; //num_threads.unwrap_or_else(num_cpus::get);
         let num_kv_req_threads = 16; //= num_cpus::get() / 2;
         let num_shards = remote_shard_addresses.len();
         info!("num threads for remote state view service: {}", num_threads);
@@ -140,7 +140,7 @@ impl<S: StateView + Sync + Send + 'static> RemoteStateViewService<S> {
     pub fn start(&self) {
         //let (signal_tx, signal_rx) = unbounded();
         let thread_pool_clone = self.thread_pool.clone();
-        let num_handlers = 48; //6 * self.num_shards;
+        let num_handlers = 24; //6 * self.num_shards;
         info!("Num handlers created is {}", num_handlers);
         for i in 0..num_handlers {
             let state_view_clone = self.state_view.clone();
@@ -249,7 +249,7 @@ impl<S: StateView + Sync + Send + 'static> RemoteStateViewService<S> {
             .as_millis() as u64;
 
         let thread_pool_proc = Arc::new(rayon::ThreadPoolBuilder::new()
-            .num_threads(5)
+            .num_threads(6)
             .thread_name(|i| format!("remote-state-view-service-kv-request-handler-{}", i))
             .build()
             .unwrap());
@@ -347,7 +347,7 @@ impl<S: StateView + Sync + Send + 'static> RemoteStateViewService<S> {
         thread_pool.install(|| {
             state_keys
                 .into_par_iter()
-                .with_min_len(40)
+                .with_min_len(20)
                 .map(|state_key| {
                     let state_value = state_view
                         .read()
@@ -411,7 +411,7 @@ impl<S: StateView + Sync + Send + 'static> RemoteStateViewService<S> {
         outbound_rpc_runtime.spawn(async move {
             kv_tx_clone[shard_id][rand_send_thread_idx].lock().await.send_async(resp_message, &MessageType::new("remote_kv_response".to_string())).await;
         });
-        //kv_tx_clone[shard_id][rand_send_thread_idx].lock().unwrap().send(resp_message, &MessageType::new("remote_kv_response".to_string()));
+        // kv_tx_clone[shard_id][rand_send_thread_idx].lock().unwrap().send(resp_message, &MessageType::new("remote_kv_response".to_string()));
         drop(timer_6);
         {
             let curr_time = SystemTime::now()
