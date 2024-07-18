@@ -419,6 +419,10 @@ impl<S: StateView + Sync + Send + 'static> RemoteStateViewService<S> {
             .start_timer();
         outbound_rpc_runtime.spawn(async move {
             kv_tx_clone[shard_id][rand_send_thread_idx].lock().await.send_async(resp_message, &MessageType::new("remote_kv_response".to_string())).await;
+            let curr_time = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis() as u64;
+            if shard_id == 0 {
+                info!("Put a kv batch to GPRC. From shard {} with seq_num {} at time {}", shard_id, seq_num, curr_time);
+            }
         });
         // kv_tx_clone[shard_id][rand_send_thread_idx].lock().unwrap().send(resp_message, &MessageType::new("remote_kv_response".to_string()));
         drop(timer_6);

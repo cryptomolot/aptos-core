@@ -231,10 +231,6 @@ impl GRPCNetworkMessageServiceClientWrapper {
                 );
             },
         }
-        let curr_time = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis() as u64;
-        if message.shard_id.unwrap() == 0 {
-            info!("Put a kv batch to GPRC. From shard {} with seq_num {} at time {}", message.shard_id.unwrap(), message.seq_num.unwrap(), curr_time);
-        }
     }
 }
 
