@@ -480,7 +480,12 @@ impl<S: StateView + Sync + Send + 'static> ExecutorClient<S> for RemoteExecutorC
                             .lock()
                             .unwrap()
                             .send(msg, &MessageType::new(execute_command_type));
-                        drop(timer_1)
+                        let curr_time = SystemTime::now()
+                            .duration_since(SystemTime::UNIX_EPOCH)
+                            .unwrap()
+                            .as_millis() as u64;
+                        drop(timer_1);
+                        info!("Sent {} cmd batch to shard {} at time {}", chunk_idx, shard_id, curr_time);
                     });
 
                 /*let shard_txns = &transactions_clone.get_ref().0[shard_id];
