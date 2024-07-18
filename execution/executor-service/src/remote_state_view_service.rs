@@ -258,7 +258,7 @@ impl<S: StateView + Sync + Send + 'static> RemoteStateViewService<S> {
             .thread_name(|i| format!("remote-state-view-service-kv-request-handler-{}", i))
             .build()
             .unwrap());
-
+        let mut i = 0;
         loop {
 
             let (lock, cvar) = &*recv_condition;
@@ -275,6 +275,9 @@ impl<S: StateView + Sync + Send + 'static> RemoteStateViewService<S> {
             REMOTE_EXECUTOR_TIMER
                 .with_label_values(&["0", "kv_proc_thread_waiting_time"])
                 .observe(((curr_time - prev_time) / 1000) as f64);
+            if id == 0 {
+                info!("Loop {} | Start time for thread {} is {}", i, id, prev_time);
+            }
 
             if let Some(message) = maybe_message {
                 let state_view = state_view.clone();
@@ -287,6 +290,10 @@ impl<S: StateView + Sync + Send + 'static> RemoteStateViewService<S> {
                 .duration_since(SystemTime::UNIX_EPOCH)
                 .unwrap()
                 .as_millis() as u64;
+            if id == 0 {
+                info!("Loop {} | End time for thread {} is {}", i, id, prev_time);
+            }
+            i += 1;
         }
     }
 
