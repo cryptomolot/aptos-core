@@ -68,7 +68,7 @@ impl<S: StateView + Sync + Send + 'static> RemoteStateViewService<S> {
         remote_shard_addresses: Vec<SocketAddr>,
         num_threads: Option<usize>,
     ) -> Self {
-        let num_threads = 120; // 3 * remote_shard_addresses.len();//remote_shard_addresses.len() * 2; //num_threads.unwrap_or_else(num_cpus::get);
+        let num_threads = 24; // 3 * remote_shard_addresses.len();//remote_shard_addresses.len() * 2; //num_threads.unwrap_or_else(num_cpus::get);
         let num_kv_req_threads = 16; //= num_cpus::get() / 2;
         let num_shards = remote_shard_addresses.len();
         info!("num threads for remote state view service: {}", num_threads);
@@ -247,6 +247,13 @@ impl<S: StateView + Sync + Send + 'static> RemoteStateViewService<S> {
             .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap()
             .as_millis() as u64;
+
+        let thread_pool_proc = Arc::new(rayon::ThreadPoolBuilder::new()
+            .num_threads(5)
+            .thread_name(|i| format!("remote-state-view-service-kv-request-handler-{}", i))
+            .build()
+            .unwrap());
+
         loop {
 
             let (lock, cvar) = &*recv_condition;
@@ -269,7 +276,7 @@ impl<S: StateView + Sync + Send + 'static> RemoteStateViewService<S> {
                 let kv_txs = kv_tx.clone();
 
                 let outbound_rpc_runtime_clone = outbound_rpc_runtime.clone();
-                Self::handle_message(message, state_view, kv_txs, rng.gen_range(0, kv_tx[0].len()), outbound_rpc_runtime_clone);
+                Self::handle_message(message, state_view, kv_txs, rng.gen_range(0, kv_tx[0].len()), outbound_rpc_runtime_clone, thread_pool_proc.clone());
             }
             prev_time = SystemTime::now()
                 .duration_since(SystemTime::UNIX_EPOCH)
@@ -285,6 +292,7 @@ impl<S: StateView + Sync + Send + 'static> RemoteStateViewService<S> {
         //rng: &mut StdRng,
         rand_send_thread_idx: usize,
         outbound_rpc_runtime: Arc<Runtime>,
+        thread_pool: Arc<rayon::ThreadPool>,
     ) {
         let start_ms_since_epoch = message.start_ms_since_epoch.unwrap();
         {
@@ -336,20 +344,22 @@ impl<S: StateView + Sync + Send + 'static> RemoteStateViewService<S> {
         // drop(timer_2);
 
         let mut resp = vec![];
-        state_keys
-            .into_par_iter()
-            .with_min_len(32)
-            .map(|state_key| {
-                let state_value = state_view
-                    .read()
-                    .unwrap()
-                    .as_ref()
-                    .unwrap()
-                    .get_state_value(&state_key)
-                    .unwrap();
-                (state_key, state_value)
-            })
-            .collect_into_vec(&mut resp);
+        thread_pool.install(|| {
+            state_keys
+                .into_par_iter()
+                .with_min_len(40)
+                .map(|state_key| {
+                    let state_value = state_view
+                        .read()
+                        .unwrap()
+                        .as_ref()
+                        .unwrap()
+                        .get_state_value(&state_key)
+                        .unwrap();
+                    (state_key, state_value)
+                })
+                .collect_into_vec(&mut resp);
+        });
         drop(timer_2);
 
         let curr_time = SystemTime::now()
