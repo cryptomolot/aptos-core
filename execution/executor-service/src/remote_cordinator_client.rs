@@ -239,7 +239,7 @@ impl CoordinatorClient<RemoteStateViewClient> for RemoteCoordinatorClient {
         match self.command_rx.recv() {
             Ok(message) => {
                 let curr_time = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis() as u64;
-                info!("Just received first cmd batch with seq_num {} at time {}", 200, curr_time);
+                info!("Just received first cmd batch with seq_num {} at time {}", message.seq_num.unwrap(), curr_time);
 
                 let delta = get_delta_time(message.start_ms_since_epoch.unwrap());
                 REMOTE_EXECUTOR_CMD_RESULTS_RND_TRP_JRNY_TIMER

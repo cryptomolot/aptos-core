@@ -152,7 +152,7 @@ impl RemoteStateViewClient {
         state_keys.clone().into_iter().for_each(|state_key| {
             state_view_clone.read().unwrap().insert_state_key(state_key);
         });
-        let mut seq_num = last_txn_indx as i64 - state_keys.len() as i64;
+        let mut seq_num = last_txn_indx as i64 - (state_keys.len() / 8) as i64;
 
         state_keys
             .chunks(1600)//REMOTE_STATE_KEY_BATCH_SIZE)
@@ -227,10 +227,10 @@ impl RemoteStateViewClient {
                       &MessageType::new(format!("remote_kv_request_{}", shard_id)));
         let curr_time = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis() as u64;
         if seq_num == 200 {
-            info!("Sent first kv batch from a shard with seq_num {} at time {}", seq_num, curr_time);
+            info!("Sent kv batch from a shard with seq_num {} at time {}", seq_num, curr_time);
         }
         if seq_num >= 4000 {
-            info!("Sent last kv batch from a shard with seq_num {} at time {}", seq_num, curr_time);
+            info!("Sent kv batch from a shard with seq_num {} at time {}", seq_num, curr_time);
         }
     }
 }
@@ -338,10 +338,10 @@ impl RemoteStateValueReceiver {
             });
         let curr_time = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis() as u64;
         if message.seq_num.unwrap() == 200 {
-            info!("Received and processed first batch from a cord with seq_num {} at time {}", message.seq_num.unwrap(), curr_time);
+            info!("Received and processed kv batch from a cord with seq_num {} at time {}", message.seq_num.unwrap(), curr_time);
         }
         if message.seq_num.unwrap() >= 4000 {
-            info!("Received and processed last batch from a cord with seq_num {} at time {}", message.seq_num.unwrap(), curr_time);
+            info!("Received and processed kv batch from a cord with seq_num {} at time {}", message.seq_num.unwrap(), curr_time);
         }
         {
             let curr_time = SystemTime::now()
