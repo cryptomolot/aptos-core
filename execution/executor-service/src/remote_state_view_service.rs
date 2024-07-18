@@ -347,7 +347,7 @@ impl<S: StateView + Sync + Send + 'static> RemoteStateViewService<S> {
         thread_pool.install(|| {
             state_keys
                 .into_par_iter()
-                .with_min_len(20)
+                .with_min_len(250)
                 .map(|state_key| {
                     let state_value = state_view
                         .read()
