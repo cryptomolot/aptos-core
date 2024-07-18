@@ -222,16 +222,18 @@ impl RemoteStateViewClient {
         //     sender[rand_send_thread_idx].lock().await.send_async(Message::create_with_metadata(request_message, duration_since_epoch, seq_num, shard_id as u64),
         //                                       &MessageType::new(format!("remote_kv_request_{}", shard_id))).await;
         // });
-
+        let curr_time = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis() as u64;
+        info!("Sent (1) kv batch from a shard with seq_num {} at time {}", seq_num, curr_time);
         sender_lk.send(Message::create_with_metadata(request_message, duration_since_epoch, seq_num, shard_id as u64),
                       &MessageType::new(format!("remote_kv_request_{}", shard_id)));
         let curr_time = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis() as u64;
-        if seq_num == 200 {
-            info!("Sent kv batch from a shard with seq_num {} at time {}", seq_num, curr_time);
-        }
-        if seq_num >= 4000 {
-            info!("Sent kv batch from a shard with seq_num {} at time {}", seq_num, curr_time);
-        }
+        info!("Sent (2) kv batch from a shard with seq_num {} at time {}", seq_num, curr_time);
+        // if seq_num == 200 {
+        //     info!("Sent kv batch from a shard with seq_num {} at time {}", seq_num, curr_time);
+        // }
+        // if seq_num >= 4000 {
+        //     info!("Sent kv batch from a shard with seq_num {} at time {}", seq_num, curr_time);
+        // }
     }
 }
 
@@ -337,12 +339,13 @@ impl RemoteStateValueReceiver {
                 state_view_lock.set_state_value(&state_key, state_value);
             });
         let curr_time = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis() as u64;
-        if message.seq_num.unwrap() == 200 {
-            info!("Received and processed kv batch from a cord with seq_num {} at time {}", message.seq_num.unwrap(), curr_time);
-        }
-        if message.seq_num.unwrap() >= 4000 {
-            info!("Received and processed kv batch from a cord with seq_num {} at time {}", message.seq_num.unwrap(), curr_time);
-        }
+        info!("Received and processed kv batch from a cord with seq_num {} at time {}", message.seq_num.unwrap(), curr_time);
+        // if message.seq_num.unwrap() == 200 {
+        //     info!("Received and processed kv batch from a cord with seq_num {} at time {}", message.seq_num.unwrap(), curr_time);
+        // }
+        // if message.seq_num.unwrap() >= 4000 {
+        //     info!("Received and processed kv batch from a cord with seq_num {} at time {}", message.seq_num.unwrap(), curr_time);
+        // }
         {
             let curr_time = SystemTime::now()
                 .duration_since(SystemTime::UNIX_EPOCH)

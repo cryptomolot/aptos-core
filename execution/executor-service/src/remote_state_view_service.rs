@@ -148,7 +148,7 @@ impl<S: StateView + Sync + Send + 'static> RemoteStateViewService<S> {
             let kv_unprocessed_pq_clone = self.kv_unprocessed_pq.clone();
             let recv_condition_clone = self.recv_condition.clone();
             let outbound_rpc_runtime_clone = self.outbound_rpc_runtime.clone();
-            rayon::spawn(move || {
+            self.thread_pool.spawn(move || {
                 Self::priority_handler(state_view_clone.clone(),
                                        kv_tx_clone.clone(),
                                        kv_unprocessed_pq_clone,
@@ -179,12 +179,13 @@ impl<S: StateView + Sync + Send + 'static> RemoteStateViewService<S> {
                         .with_label_values(&["0", "kv_requests_handler_timer"])
                         .start_timer();
                     let priority = message.seq_num.unwrap() as i64;
-                    if priority == 200 {
-                        info!("Received {} kv batch from shard {} with seq_num {} at time {}", priority, message.shard_id.unwrap(), message.seq_num.unwrap(), curr_time);
-                    }
-                    if priority >= 4000 {
-                        info!("Received {} kv batch from shard {} with seq_num {} at time {}", priority, message.shard_id.unwrap(), message.seq_num.unwrap(), curr_time);
-                    }
+                    let shard_id = message.shard_id.unwrap();
+                        // if priority == 200 {
+                    //     info!("Received {} kv batch from shard {} with seq_num {} at time {}", priority, message.shard_id.unwrap(), message.seq_num.unwrap(), curr_time);
+                    // }
+                    // if priority >= 4000 {
+                    //     info!("Received {} kv batch from shard {} with seq_num {} at time {}", priority, message.shard_id.unwrap(), message.seq_num.unwrap(), curr_time);
+                    // }
                     //Self::handle_message(message, state_view_clone.clone(), kv_tx_clone.clone(), rng.gen_range(0, kv_tx_clone[0].len()), outbound_rpc_runtime_clone.clone());
                     {
                         let (lock, cvar) = &*recv_condition_clone;
@@ -193,6 +194,10 @@ impl<S: StateView + Sync + Send + 'static> RemoteStateViewService<S> {
                         //self.recv_condition.1.notify_all();
                         //recv_condition_clone.1.notify_all();
                         recv_condition_clone.1.notify_one();
+                    }
+                    let curr_time = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis() as u64;
+                    if shard_id == 0 {
+                        info!("Put to PCQ kv batch from shard {} with seq_num {} at time {}", shard_id, priority, curr_time);
                     }
                     REMOTE_EXECUTOR_TIMER
                         .with_label_values(&["0", "kv_req_pq_size"])
@@ -367,11 +372,15 @@ impl<S: StateView + Sync + Send + 'static> RemoteStateViewService<S> {
             .unwrap()
             .as_millis() as u64;
 
-        if message.seq_num.unwrap() == 200 {
-            info!("Processed {} kv batch from shard {} with seq_num {} at time {}", message.seq_num.unwrap(), message.shard_id.unwrap(), message.seq_num.unwrap(), curr_time);
-        }
-        if message.seq_num.unwrap() >= 4000 {
-            info!("Processed {} kv batch from shard {} with seq_num {} at time {}", message.seq_num.unwrap(), message.shard_id.unwrap(), message.seq_num.unwrap(), curr_time);
+        // if message.seq_num.unwrap() == 200 {
+        //     info!("Processed {} kv batch from shard {} with seq_num {} at time {}", message.seq_num.unwrap(), message.shard_id.unwrap(), message.seq_num.unwrap(), curr_time);
+        // }
+        // if message.seq_num.unwrap() >= 4000 {
+        //     info!("Processed {} kv batch from shard {} with seq_num {} at time {}", message.seq_num.unwrap(), message.shard_id.unwrap(), message.seq_num.unwrap(), curr_time);
+        // }
+
+        if shard_id == 0 {
+            info!("Got answers for a kv batch from shard {} with seq_num {} at time {}", shard_id, message.seq_num.unwrap(), curr_time);
         }
 
         let timer_3 = REMOTE_EXECUTOR_TIMER
