@@ -152,14 +152,15 @@ impl RemoteStateViewClient {
         state_keys.clone().into_iter().for_each(|state_key| {
             state_view_clone.read().unwrap().insert_state_key(state_key);
         });
-        let seq_num = last_txn_indx as u64;
+        let mut seq_num = last_txn_indx as i64 - state_keys.len() as i64;
 
         state_keys
             .chunks(1600)//REMOTE_STATE_KEY_BATCH_SIZE)
             .map(|state_keys_chunk| state_keys_chunk.to_vec())
             .for_each(|state_keys| {
                 let sender = kv_tx.clone();
-                let priority = {if state_keys.len() == 1 {0} else {seq_num}};
+                seq_num += (state_keys.len() / 8) as i64;
+                let priority = {if state_keys.len() == 1 {0} else {seq_num as u64}};
                 // info!("Sending a state value request with priority {}", priority);
                 thread_pool.spawn_fifo(move || {
                     let mut rng = StdRng::from_entropy();
