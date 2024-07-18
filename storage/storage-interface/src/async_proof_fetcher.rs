@@ -60,9 +60,9 @@ impl AsyncProofFetcher {
         state_key: &StateKey,
         version: Version,
     ) -> Result<Option<(Version, StateValue)>> {
-        // let _timer = TIMER
-        //     .with_label_values(&["async_proof_fetcher_fetch"])
-        //     .start_timer();
+        let _timer = TIMER
+            .with_label_values(&["async_proof_fetcher_fetch"])
+            .start_timer();
         Ok(self
             .reader
             .get_state_value_with_version_by_version(state_key, version)?)
@@ -97,7 +97,7 @@ impl AsyncProofFetcher {
     //
     // This is only expected to be called in a single thread, after all reads being scheduled.
     fn wait(&self) -> HashMap<HashValue, SparseMerkleProofExt> {
-        // let _timer = TIMER.with_label_values(&["wait_async_proof"]).start_timer();
+        let _timer = TIMER.with_label_values(&["wait_async_proof"]).start_timer();
         // TODO(grao): Find a way to verify the proof.
         let mut proofs = HashMap::new();
         for _ in 0..self.num_proofs_to_read.load(Ordering::SeqCst) {
@@ -124,9 +124,9 @@ impl AsyncProofFetcher {
         subtree_root_hash: Option<HashValue>,
         value_hash: Option<HashValue>,
     ) {
-        // let _timer = TIMER
-        //     .with_label_values(&["schedule_async_proof_read"])
-        //     .start_timer();
+        let _timer = TIMER
+            .with_label_values(&["schedule_async_proof_read"])
+            .start_timer();
         self.num_proofs_to_read.fetch_add(1, Ordering::SeqCst);
         let reader = self.reader.clone();
         let data_sender = self.data_sender.clone();
