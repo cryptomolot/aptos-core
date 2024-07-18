@@ -68,7 +68,7 @@ impl<S: StateView + Sync + Send + 'static> RemoteStateViewService<S> {
         remote_shard_addresses: Vec<SocketAddr>,
         num_threads: Option<usize>,
     ) -> Self {
-        let num_threads = 24; // 3 * remote_shard_addresses.len();//remote_shard_addresses.len() * 2; //num_threads.unwrap_or_else(num_cpus::get);
+        let num_threads = 120; // 3 * remote_shard_addresses.len();//remote_shard_addresses.len() * 2; //num_threads.unwrap_or_else(num_cpus::get);
         let num_kv_req_threads = 16; //= num_cpus::get() / 2;
         let num_shards = remote_shard_addresses.len();
         info!("num threads for remote state view service: {}", num_threads);
@@ -320,8 +320,25 @@ impl<S: StateView + Sync + Send + 'static> RemoteStateViewService<S> {
             shard_id,
             state_keys.len()
         );
-        let resp = state_keys
-            .into_iter()
+        // let resp = state_keys
+        //     .into_iter()
+        //     .map(|state_key| {
+        //         let state_value = state_view
+        //             .read()
+        //             .unwrap()
+        //             .as_ref()
+        //             .unwrap()
+        //             .get_state_value(&state_key)
+        //             .unwrap();
+        //         (state_key, state_value)
+        //     })
+        //     .collect_vec();
+        // drop(timer_2);
+
+        let mut resp = vec![];
+        state_keys
+            .into_par_iter()
+            .with_min_len(32)
             .map(|state_key| {
                 let state_value = state_view
                     .read()
@@ -332,7 +349,7 @@ impl<S: StateView + Sync + Send + 'static> RemoteStateViewService<S> {
                     .unwrap();
                 (state_key, state_value)
             })
-            .collect_vec();
+            .collect_into_vec(&mut resp);
         drop(timer_2);
 
         let curr_time = SystemTime::now()
@@ -346,23 +363,6 @@ impl<S: StateView + Sync + Send + 'static> RemoteStateViewService<S> {
         if message.seq_num.unwrap() >= 4000 {
             info!("Processes {} kv batch from shard {} with seq_num {} at time {}", message.seq_num.unwrap(), message.shard_id.unwrap(), message.seq_num.unwrap(), curr_time);
         }
-
-        // let mut resp = vec![];
-        // state_keys
-        //     .into_par_iter()
-        //     .with_min_len(32)
-        //     .map(|state_key| {
-        //         let state_value = state_view
-        //             .read()
-        //             .unwrap()
-        //             .as_ref()
-        //             .unwrap()
-        //             .get_state_value(&state_key)
-        //             .unwrap();
-        //         (state_key, state_value)
-        //     })
-        //     .collect_into_vec(&mut resp);
-        // drop(timer_2);
 
         let timer_3 = REMOTE_EXECUTOR_TIMER
             .with_label_values(&["0", "kv_requests_3"])
