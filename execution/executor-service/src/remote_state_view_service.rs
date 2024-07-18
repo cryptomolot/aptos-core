@@ -148,7 +148,7 @@ impl<S: StateView + Sync + Send + 'static> RemoteStateViewService<S> {
             let kv_unprocessed_pq_clone = self.kv_unprocessed_pq.clone();
             let recv_condition_clone = self.recv_condition.clone();
             let outbound_rpc_runtime_clone = self.outbound_rpc_runtime.clone();
-            thread_pool_clone.spawn(move || {
+            rayon::spawn(move || {
                 Self::priority_handler(state_view_clone.clone(),
                                        kv_tx_clone.clone(),
                                        kv_unprocessed_pq_clone,
@@ -371,7 +371,7 @@ impl<S: StateView + Sync + Send + 'static> RemoteStateViewService<S> {
             info!("Processed {} kv batch from shard {} with seq_num {} at time {}", message.seq_num.unwrap(), message.shard_id.unwrap(), message.seq_num.unwrap(), curr_time);
         }
         if message.seq_num.unwrap() >= 4000 {
-            info!("Processes {} kv batch from shard {} with seq_num {} at time {}", message.seq_num.unwrap(), message.shard_id.unwrap(), message.seq_num.unwrap(), curr_time);
+            info!("Processed {} kv batch from shard {} with seq_num {} at time {}", message.seq_num.unwrap(), message.shard_id.unwrap(), message.seq_num.unwrap(), curr_time);
         }
 
         let timer_3 = REMOTE_EXECUTOR_TIMER
