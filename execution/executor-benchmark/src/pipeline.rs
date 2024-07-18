@@ -131,7 +131,12 @@ where
             LedgerUpdateStage::new(executor_2, Some(commit_sender), version);
 
         let (executable_block_sender, executable_block_receiver) =
-            mpsc::sync_channel::<ExecuteBlockMessage>(3);
+            mpsc::sync_channel::<ExecuteBlockMessage>(if config.split_stages {
+                (num_blocks.unwrap() + 1).max(3)
+            } else {
+                3
+            }, /* bound */
+        );
 
         let partitioning_thread = std::thread::Builder::new()
             .name("block_partitioning".to_string())
