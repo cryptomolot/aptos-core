@@ -280,11 +280,9 @@ impl TStateView for CachedStateView {
 
     fn get_state_value(&self, state_key: &StateKey) -> Result<Option<StateValue>> {
         let rng = fastrand::u32(..) % 100;
-        let mut timer1;
-        let mut timer2;
         if rng == 0 {
-            timer1 = TIMER.with_label_values(&["get_state_value"]).start_timer();
-            timer2 = TIMER.with_label_values(&["get_state_value_dash_map_lock"]).start_timer();
+            let timer1 = TIMER.with_label_values(&["get_state_value"]).start_timer();
+            let timer2 = TIMER.with_label_values(&["get_state_value_dash_map_lock"]).start_timer();
             // First check if the cache has the state value.
             if let Some(version_and_value_opt) = self
                 .sharded_state_cache
