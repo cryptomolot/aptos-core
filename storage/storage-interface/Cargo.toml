@@ -33,6 +33,8 @@ rayon = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
 threadpool = { workspace = true }
+r-gen = "0.0.2"
+fastrand = "2.0.1"
 
 [dev-dependencies]
 aptos-types = { workspace = true, features = ["fuzzing"] }
