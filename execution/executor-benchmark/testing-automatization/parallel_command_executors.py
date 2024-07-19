@@ -95,7 +95,7 @@ for i in range(num_shards):
     rem_exe_add += local_ip_address[f"sharding-executor-{i+1}"] + ":" + str(52200 + i + 2) + " "
 commands = []
 for i in range(num_shards):
-    commands.append(f"cd aptos-core && {metrics} /home/janolkowski/.cargo/bin/cargo run --profile performance -p aptos-executor-service --manifest-path /home/janolkowski/aptos-core/execution/executor-service/Cargo.toml -- --shard-id {i} --num-shards {num_shards} --coordinator-address {coordinator}:52200 " + rem_exe_add + f"--num-executor-threads 48 > executor-{i}.log")
+    commands.append(f"cd aptos-core && ulimit -n 1000000 && {metrics} /home/janolkowski/.cargo/bin/cargo run --profile performance -p aptos-executor-service --manifest-path /home/janolkowski/aptos-core/execution/executor-service/Cargo.toml -- --shard-id {i} --num-shards {num_shards} --coordinator-address {coordinator}:52200 " + rem_exe_add + f"--num-executor-threads 48 > executor-{i}.log")
 
 # print(commands)
 
