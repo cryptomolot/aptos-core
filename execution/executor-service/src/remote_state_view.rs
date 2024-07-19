@@ -161,7 +161,7 @@ impl RemoteStateViewClient {
                 let sender = kv_tx.clone();
                 let priority = {if state_keys.len() == 1 {0} else {seq_num}};
                 // info!("Sending a state value request with priority {}", priority);
-                let rand_send_thread_idx = rng.gen_range(0, sender.len());
+                let rand_send_thread_idx = 0;//rng.gen_range(0, sender.len());
                 thread_pool.spawn_fifo(move || {
                     Self::send_state_value_request(shard_id, sender, state_keys, rand_send_thread_idx, priority);
                 });
