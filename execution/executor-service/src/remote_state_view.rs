@@ -229,12 +229,13 @@ impl RemoteStateViewClient {
         // sender_lk.send(Message::create_with_metadata(request_message, duration_since_epoch, seq_num, shard_id as u64),
         //               &MessageType::new(format!("remote_kv_request_{}", shard_id)));
         let curr_time = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis() as u64;
-        if seq_num == 200 {
-            info!("Sent first kv batch from a shard with seq_num {} at time {}", seq_num, curr_time);
-        }
-        if seq_num >= 4000 {
-            info!("Sent last kv batch from a shard with seq_num {} at time {}", seq_num, curr_time);
-        }
+        info!("Put kv batch into outbound runtime. Seq_num: {}; Time: {}", seq_num, curr_time);
+        // if seq_num == 200 {
+        //     info!("Sent first kv batch from a shard with seq_num {} at time {}", seq_num, curr_time);
+        // }
+        // if seq_num >= 4000 {
+        //     info!("Sent last kv batch from a shard with seq_num {} at time {}", seq_num, curr_time);
+        // }
     }
 }
 
