@@ -61,10 +61,12 @@ impl OutboundRpcHelper {
                 .with_label_values(&["5_kv_resp_coord_grpc_send_2_in_async_rt"]).observe(delta);
         }*/
         }
+        let curr_time = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis() as u64;
+        info!("Sent (a) kv batch to coord. Seq_num: {}; Time: {}", seq_num, curr_time);
         let seq_num = msg.seq_num.unwrap();
         self.grpc_client
             .send_message(self.self_addr, msg, mt).await;
         let curr_time = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis() as u64;
-        info!("Sent kv batch to coord. Seq_num: {}; Time: {}", seq_num, curr_time);
+        info!("Sent (b) kv batch to coord. Seq_num: {}; Time: {}", seq_num, curr_time);
     }
 }
