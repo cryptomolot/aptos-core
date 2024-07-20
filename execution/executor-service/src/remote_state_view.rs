@@ -97,7 +97,7 @@ impl RemoteStateViewClient {
         controller: &mut NetworkController,
         coordinator_address: SocketAddr,
     ) -> Self {
-        let num_kv_req_threads = 1; //num_cpus::get() / 2;
+        let num_kv_req_threads = 16; //num_cpus::get() / 2;
         let thread_pool = Arc::new(
             rayon::ThreadPoolBuilder::new()
                 .thread_name(move |index| format!("remote-state-view-shard-send-request-{}-{}", shard_id, index))
@@ -166,7 +166,7 @@ impl RemoteStateViewClient {
                 let sender = kv_tx.clone();
                 let priority = {if state_keys.len() == 1 {0} else {seq_num}};
                 // info!("Sending a state value request with priority {}", priority);
-                let rand_send_thread_idx = 0;//rng.gen_range(0, sender.len());
+                let rand_send_thread_idx = rng.gen_range(0, sender.len());
                 thread_pool.spawn_fifo(move || {
                     Self::send_state_value_request(shard_id, sender, state_keys, rand_send_thread_idx, priority);
                 });
