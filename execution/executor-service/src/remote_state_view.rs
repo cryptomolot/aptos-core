@@ -52,10 +52,15 @@ impl RemoteStateView {
     }
 
     pub fn set_state_value(&self, state_key: &StateKey, state_value: Option<StateValue>) {
-        self.state_values
-            .get(state_key)
-            .unwrap()
-            .set_value(state_value);
+        // set_state_value can be called after the execution on a shard finished and
+        // state_values map has been cleared. In that case we should not set the value.
+        if let Some(value) = self.state_values.get(state_key) {
+            value.set_value(state_value);
+        }
+        // self.state_values
+        //     .get(state_key)
+        //     .unwrap()
+        //     .set_value(state_value);
     }
 
     pub fn insert_state_key(&self, state_key: StateKey) {
