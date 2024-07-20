@@ -34,7 +34,7 @@ use aptos_secure_net::network_controller::metrics::REMOTE_EXECUTOR_RND_TRP_JRNY_
 pub static REMOTE_STATE_KEY_BATCH_SIZE: usize = 200;
 pub static REMOTE_KV_REQUEST_MSG_TYPE: &str = "remote_kv_request";
 
-pub static OUTBOUND_RUNTIME: OnceCell<Arc<Runtime>> = OnceCell::new();
+pub static OUTBOUND_RUNTIME: OnceCell<Mutex<Arc<Runtime>>> = OnceCell::new();
 
 pub struct RemoteStateView {
     state_values: DashMap<StateKey, RemoteStateValue>,
@@ -221,7 +221,7 @@ impl RemoteStateViewClient {
         REMOTE_EXECUTOR_RND_TRP_JRNY_TIMER
             .with_label_values(&["0_kv_req_grpc_shard_send_1_lock_acquired"]).observe(delta);
 
-        OUTBOUND_RUNTIME.get().unwrap().spawn(async move {
+        OUTBOUND_RUNTIME.get().unwrap().lock().unwrap().spawn(async move {
             sender[rand_send_thread_idx].lock().await.send_async(Message::create_with_metadata(request_message, duration_since_epoch, seq_num, shard_id as u64),
                                               &MessageType::new(format!("remote_kv_request_{}", shard_id))).await;
         });

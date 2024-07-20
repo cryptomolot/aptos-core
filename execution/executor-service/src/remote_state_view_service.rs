@@ -179,12 +179,12 @@ impl<S: StateView + Sync + Send + 'static> RemoteStateViewService<S> {
                         .with_label_values(&["0", "kv_requests_handler_timer"])
                         .start_timer();
                     let priority = message.seq_num.unwrap() as i64;
-                    // if priority == 200 {
-                    //     info!("Received first message from shard {} with seq_num {} at time {}", message.shard_id.unwrap(), message.seq_num.unwrap(), curr_time);
-                    // }
-                    // if priority >= 4000 {
-                    //     info!("Received last message from shard {} with seq_num {} at time {}", message.shard_id.unwrap(), message.seq_num.unwrap(), curr_time);
-                    // }
+                    if priority == 200 {
+                        info!("Received first message from shard {} with seq_num {} at time {}", message.shard_id.unwrap(), message.seq_num.unwrap(), curr_time);
+                    }
+                    if priority >= 4000 {
+                        info!("Received last message from shard {} with seq_num {} at time {}", message.shard_id.unwrap(), message.seq_num.unwrap(), curr_time);
+                    }
                     //Self::handle_message(message, state_view_clone.clone(), kv_tx_clone.clone(), rng.gen_range(0, kv_tx_clone[0].len()), outbound_rpc_runtime_clone.clone());
                     {
                         let (lock, cvar) = &*recv_condition_clone;
@@ -340,12 +340,12 @@ impl<S: StateView + Sync + Send + 'static> RemoteStateViewService<S> {
             .unwrap()
             .as_millis() as u64;
 
-        // if message.seq_num.unwrap() == 200 {
-        //     info!("Processed first batch from shard {} with seq_num {} at time {}", message.shard_id.unwrap(), message.seq_num.unwrap(), curr_time);
-        // }
-        // if message.seq_num.unwrap() >= 4000 {
-        //     info!("Processes last batch from shard {} with seq_num {} at time {}", message.shard_id.unwrap(), message.seq_num.unwrap(), curr_time);
-        // }
+        if message.seq_num.unwrap() == 200 {
+            info!("Processed first batch from shard {} with seq_num {} at time {}", message.shard_id.unwrap(), message.seq_num.unwrap(), curr_time);
+        }
+        if message.seq_num.unwrap() >= 4000 {
+            info!("Processes last batch from shard {} with seq_num {} at time {}", message.shard_id.unwrap(), message.seq_num.unwrap(), curr_time);
+        }
 
         // let mut resp = vec![];
         // state_keys

@@ -58,7 +58,7 @@ impl RemoteCoordinatorClient {
         let state_view_client =
             RemoteStateViewClient::new(shard_id, controller, coordinator_address);
 
-        OUTBOUND_RUNTIME.set(controller.get_outbound_rpc_runtime().clone()).ok();
+        OUTBOUND_RUNTIME.set(Mutex::new(controller.get_outbound_rpc_runtime().clone())).ok();
 
         Self {
             state_view_client: Arc::new(state_view_client),
