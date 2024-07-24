@@ -253,6 +253,8 @@ impl<S: StateView + Sync + Send + 'static> RemoteExecutorClient<S> {
                     //info!("Streamed output from shard {}; txn_id {}", shard_id, result.txn_idx);
                     outputs.extend(result);
                     if num_outputs_received == expected_outputs_clone[shard_id] {
+                        let curr_time = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis() as u64;
+                        info!("Received all results from shard {} at time {}", shard_id, curr_time);
                         let delta = get_delta_time(duration_since_epoch);
                         REMOTE_EXECUTOR_CMD_RESULTS_RND_TRP_JRNY_TIMER
                             .with_label_values(&["9_1_results_tx_msg_remote_exe_recv"]).observe(delta as f64);
@@ -480,6 +482,8 @@ impl<S: StateView + Sync + Send + 'static> ExecutorClient<S> for RemoteExecutorC
                             .lock()
                             .unwrap()
                             .send(msg, &MessageType::new(execute_command_type));
+                        let curr_time = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis() as u64;
+                        info!("Sent cmd batch {} to shard {} at time {}", chunk_idx, shard_id, curr_time);
                         drop(timer_1)
                     });
 
