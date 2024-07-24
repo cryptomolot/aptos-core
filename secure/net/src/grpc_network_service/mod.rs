@@ -199,7 +199,7 @@ impl GRPCNetworkMessageServiceClientWrapper {
         let request = tonic::Request::new(NetworkMessage {
             message: message.data,
             message_type: mt.get_type(),
-            ms_since_epoch: Some(curr_time); //message.start_ms_since_epoch,
+            ms_since_epoch: Some(curr_time), //message.start_ms_since_epoch,
             seq_no: message.seq_num,
             shard_id: message.shard_id,
         });
