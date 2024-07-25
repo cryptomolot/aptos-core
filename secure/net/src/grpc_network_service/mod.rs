@@ -195,14 +195,14 @@ impl GRPCNetworkMessageServiceClientWrapper {
         message: Message,
         mt: &MessageType,
     ) {
-        let curr_time = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis() as u64;
-        let request = tonic::Request::new(NetworkMessage {
-            message: message.data,
-            message_type: mt.get_type(),
-            ms_since_epoch: Some(curr_time), //message.start_ms_since_epoch,
-            seq_no: message.seq_num,
-            shard_id: message.shard_id,
-        });
+        // let curr_time = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis() as u64;
+        // let request = tonic::Request::new(NetworkMessage {
+        //     message: message.data,
+        //     message_type: mt.get_type(),
+        //     ms_since_epoch: Some(curr_time), //message.start_ms_since_epoch,
+        //     seq_no: message.seq_num,
+        //     shard_id: message.shard_id,
+        // });
 
         if message.start_ms_since_epoch.is_some() {
             let curr_time = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis() as u64;
@@ -238,14 +238,16 @@ impl GRPCNetworkMessageServiceClientWrapper {
             });
             match self.remote_channel.simple_msg_exchange(request).await {
                 Ok(_) => {break;},
-                Err(Status::cancelled()) => {
-                    cnt += 1;
-                },
-                Err(e) => {
-                    panic!(
-                        "Error '{}' sending message to {} on node {:?}",
-                        e, self.remote_addr, sender_addr
-                    );
+                Err(status) => match status.code() {
+                    tonic::Code::Cancelled => {
+                        cnt += 1;
+                    },
+                    e => {
+                        panic!(
+                            "Error '{}' sending message to {} on node {:?}",
+                            e, self.remote_addr, sender_addr
+                        );
+                    }
                 }
             }
         }
