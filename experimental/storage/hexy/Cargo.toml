@@ -17,6 +17,7 @@ anyhow = { workspace = true }
 aptos-crypto = { workspace = true }
 aptos-experimental-layered-map = { workspace = true }
 aptos-metrics-core = { workspace = true }
+arrayvec = { workspace = true }
 itertools = { workspace = true }
 once_cell = { workspace = true }
 

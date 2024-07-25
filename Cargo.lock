@@ -1549,6 +1549,7 @@ dependencies = [
  "aptos-crypto",
  "aptos-experimental-layered-map",
  "aptos-metrics-core",
+ "arrayvec 0.7.4",
  "criterion",
  "itertools 0.13.0",
  "jemallocator",
