@@ -340,7 +340,7 @@ impl RemoteStateValueReceiver {
                 state_view_lock.set_state_value(&state_key, state_value);
             });
         let curr_time = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis() as u64;
-        info!("Sent kv batch with seq_num {} at time {}", message.seq_num.unwrap(), curr_time);
+        info!("Received kv batch with seq_num {} at time {}", message.seq_num.unwrap(), curr_time);
         // if message.seq_num.unwrap() == 200 {
         //     info!("Received and processed first batch from a cord with seq_num {} at time {}", message.seq_num.unwrap(), curr_time);
         // }
