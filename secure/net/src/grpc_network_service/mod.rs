@@ -26,7 +26,7 @@ use tonic::{
 };
 use crate::network_controller::metrics::{REMOTE_EXECUTOR_CMD_RESULTS_RND_TRP_JRNY_TIMER, REMOTE_EXECUTOR_RND_TRP_JRNY_TIMER};
 
-const MAX_MESSAGE_SIZE: usize = 1024 * 1024 * 80;
+const MAX_MESSAGE_SIZE: usize = 1024 * 512; // 1024 * 1024 * 80;
 
 pub struct GRPCNetworkMessageServiceServerWrapper {
     inbound_handlers: Arc<RwLock<HashMap<MessageType, Sender<Message>>>>,
