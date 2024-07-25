@@ -182,7 +182,7 @@ impl<S: StateView + Sync + Send + 'static> RemoteExecutorClient<S> {
             NetworkController::new(
                 "remote-executor-coordinator".to_string(),
                 coordinator_address,
-                5000,
+                20,//5000,
             ),
             num_threads,
         ))
