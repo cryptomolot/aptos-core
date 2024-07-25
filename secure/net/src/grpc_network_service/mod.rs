@@ -242,6 +242,12 @@ impl GRPCNetworkMessageServiceClientWrapper {
                 Err(status) => match status.code() {
                     tonic::Code::Cancelled => {
                         cnt += 1;
+                        if cnt > 10 {
+                            panic!(
+                                "Can't send message to {} on node {:?} after 10 retries", self.remote_addr, sender_addr
+                            );
+                        }
+
                     },
                     e => {
                         panic!(
