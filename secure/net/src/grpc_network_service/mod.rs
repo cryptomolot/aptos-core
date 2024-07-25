@@ -229,13 +229,14 @@ impl GRPCNetworkMessageServiceClientWrapper {
         let mut cnt = 0;
         loop {
             let curr_time = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis() as u64;
-            let request = tonic::Request::new(NetworkMessage {
+            let mut request = tonic::Request::new(NetworkMessage {
                 message: message.data.clone(),
                 message_type: mt.get_type(),
                 ms_since_epoch: Some(curr_time), //message.start_ms_since_epoch,
                 seq_no: message.seq_num,
                 shard_id: message.shard_id,
             });
+            request.set_timeout(std::time::Duration::from_millis(20));
             match self.remote_channel.simple_msg_exchange(request).await {
                 Ok(_) => {break;},
                 Err(status) => match status.code() {
