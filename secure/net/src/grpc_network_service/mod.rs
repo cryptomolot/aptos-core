@@ -236,9 +236,10 @@ impl GRPCNetworkMessageServiceClientWrapper {
                 seq_no: message.seq_num,
                 shard_id: message.shard_id,
             });
-            request.set_timeout(std::time::Duration::from_millis(40));
             match self.remote_channel.simple_msg_exchange(request).await {
-                Ok(_) => {break;},
+                Ok(_) => {
+                    break;
+                },
                 Err(status) => match status.code() {
                     tonic::Code::Cancelled => {
                         cnt += 1;
