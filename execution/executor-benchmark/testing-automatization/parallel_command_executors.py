@@ -116,7 +116,7 @@ git_update_command = [
 ]
 
 git_update_command = [
-    f"cd aptos-core/ && git pull && git checkout multi_machine_sharding_max_tps_07_21 && git pull",
+    f"cd aptos-core/ && git pull && git checkout multi_machine_sharding_network_latency_exp2 && git pull",
 ]
 
 def get_external_ip(instance):
