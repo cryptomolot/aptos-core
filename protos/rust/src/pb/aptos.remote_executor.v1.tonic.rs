@@ -107,7 +107,7 @@ pub mod network_message_service_client {
                 "/aptos.remote_executor.v1.NetworkMessageService/SimpleMsgExchange",
             );
             let mut req = request.into_request();
-            req.set_timeout(std::time::Duration::from_ms(20));
+            req.set_timeout(std::time::Duration::from_millis(20));
             req.extensions_mut()
                 .insert(
                     GrpcMethod::new(
