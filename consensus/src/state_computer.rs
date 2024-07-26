@@ -20,7 +20,7 @@ use anyhow::Result;
 use aptos_consensus_notifications::ConsensusNotificationSender;
 use aptos_consensus_types::{block::Block, common::Round, pipelined_block::PipelinedBlock};
 use aptos_crypto::HashValue;
-use aptos_executor_types::{BlockExecutorTrait, ExecutorResult, StateComputeResult};
+use aptos_executor_types::{BlockExecutorTrait, ExecutorError, ExecutorResult, StateComputeResult};
 use aptos_infallible::RwLock;
 use aptos_logger::prelude::*;
 use aptos_types::{
@@ -34,7 +34,7 @@ use aptos_types::{
 };
 use fail::fail_point;
 use futures::{future::BoxFuture, SinkExt, StreamExt};
-use std::{boxed::Box, sync::Arc};
+use std::{boxed::Box, sync::Arc, time::Duration};
 use tokio::sync::{oneshot, Mutex as AsyncMutex};
 
 pub type StateComputeResultFut = BoxFuture<'static, ExecutorResult<PipelineExecutionResult>>;
@@ -44,7 +44,7 @@ pub struct PipelineExecutionResult {
     pub input_txns: Vec<SignedTransaction>,
     pub result: StateComputeResult,
     pub execution_time: Duration,
-    pub commit_rx: oneshot::Receiver<ExecutorResult<()>>,
+    pub pre_commit_result_rx: oneshot::Receiver<ExecutorResult<()>>,
 }
 
 impl PipelineExecutionResult {
@@ -52,13 +52,13 @@ impl PipelineExecutionResult {
         input_txns: Vec<SignedTransaction>,
         result: StateComputeResult,
         execution_time: Duration,
-        commit_rx: oneshot::Receiver<ExecutorResult<()>>,
+        pre_commit_result_rx: oneshot::Receiver<ExecutorResult<()>>,
     ) -> Self {
         Self {
             input_txns,
             result,
             execution_time,
-            commit_rx,
+            pre_commit_result_rx,
         }
     }
 }
@@ -278,7 +278,6 @@ impl StateComputer for ExecutionProxy {
         callback: StateComputerCommitCallBackType,
     ) -> ExecutorResult<()> {
         let mut latest_logical_time = self.write_mutex.lock().await;
-        let mut block_ids = Vec::new();
         let mut txns = Vec::new();
         let mut subscribable_txn_events = Vec::new();
         let mut payloads = Vec::new();
@@ -301,20 +300,18 @@ impl StateComputer for ExecutionProxy {
             .expect("must be set within an epoch");
         let mut pre_commit_rxs = Vec::with_capacity(blocks.len());
         for block in blocks {
-            block_ids.push(block.id());
-
             if let Some(payload) = block.block().payload() {
                 payloads.push(payload.clone());
             }
 
             txns.extend(self.transactions_to_commit(block, &validators, is_randomness_enabled));
             subscribable_txn_events.extend(block.subscribable_events());
-            pre_commit_rxs.push(block.take_commit_rx());
+            pre_commit_rxs.push(block.take_pre_commit_result_rx());
         }
 
         // wait until all blocks are committed
         for pre_commit_rx in pre_commit_rxs {
-            pre_commit_rx.await??;
+            pre_commit_rx.await.map_err(ExecutorError::internal_err)??;
         }
 
         let executor = self.executor.clone();
@@ -323,7 +320,7 @@ impl StateComputer for ExecutionProxy {
             "commit_block",
             tokio::task::spawn_blocking(move || {
                 executor
-                    .commit_blocks(block_ids, proof)
+                    .commit_ledger(proof)
                     .expect("Failed to commit blocks");
             })
             .await
@@ -352,17 +349,6 @@ impl StateComputer for ExecutionProxy {
             LogicalTime::new(target.ledger_info().epoch(), target.ledger_info().round());
         let block_timestamp = target.commit_info().timestamp_usecs();
 
-        if self.executor.committed_block_id() == target.commit_info().id() {
-            return Ok(());
-        }
-        if self.executor.latest_synced_version() == target.commit_info().version() {
-            // write the ledger down directly if it's already pre-commit (for epoch ending)
-            info!("Write the ledger info directly as it's already pre-committed.");
-            self.executor
-                .commit_blocks_ext(vec![target.commit_info().id()], target, false)
-                .unwrap();
-            return Ok(());
-        }
         // Before the state synchronization, we have to call finish() to free the in-memory SMT
         // held by BlockExecutor to prevent memory leak.
         self.executor.finish();
@@ -499,9 +485,16 @@ async fn test_commit_sync_race() {
             todo!()
         }
 
-        fn commit_blocks(
+        fn pre_commit_block(
             &self,
-            _block_ids: Vec<HashValue>,
+            _block_id: HashValue,
+            _parent_block_id: HashValue,
+        ) -> ExecutorResult<()> {
+            todo!()
+        }
+
+        fn commit_ledger(
+            &self,
             ledger_info_with_sigs: LedgerInfoWithSignatures,
         ) -> ExecutorResult<()> {
             *self.time.lock() = LogicalTime::new(

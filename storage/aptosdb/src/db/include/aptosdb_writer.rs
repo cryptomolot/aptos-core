@@ -47,14 +47,12 @@ impl DbWriter for AptosDB {
             {
                 let mut buffered_state = self.state_store.buffered_state().lock();
 
-                if !txns_to_commit.is_empty() {
-                    let _timer = OTHER_TIMERS_SECONDS.timer_with(&["buffered_state___update"]);
-                    buffered_state.update(
-                        state_updates_until_last_checkpoint,
-                        latest_in_memory_state,
-                        sync_commit || txns_to_commit.last().unwrap().is_reconfig(),
-                    )?;
-                }
+                let _timer = OTHER_TIMERS_SECONDS.timer_with(&["buffered_state___update"]);
+                buffered_state.update(
+                    state_updates_until_last_checkpoint,
+                    latest_in_memory_state,
+                    sync_commit || txns_to_commit.last().unwrap().is_reconfig(),
+                )?;
             }
             self.ledger_db.metadata_db().set_pre_committed_version(last_version);
             Ok(())

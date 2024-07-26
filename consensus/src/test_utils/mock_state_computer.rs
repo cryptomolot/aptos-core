@@ -23,6 +23,7 @@ use aptos_types::{
 use futures::SinkExt;
 use futures_channel::mpsc::UnboundedSender;
 use std::{sync::Arc, time::Duration};
+use tokio::sync::oneshot;
 
 pub struct EmptyStateComputer {
     executor_channel: UnboundedSender<OrderedBlocks>,
@@ -42,10 +43,12 @@ impl StateComputer for EmptyStateComputer {
         _parent_block_id: HashValue,
         _randomness: Option<Randomness>,
     ) -> ExecutorResult<PipelineExecutionResult> {
+        let (_tx, rx) = oneshot::channel();
         Ok(PipelineExecutionResult::new(
             vec![],
             StateComputeResult::new_dummy(),
             Duration::from_secs(0),
+            rx,
         ))
     }
 
@@ -130,8 +133,9 @@ impl StateComputer for RandomComputeResultStateComputer {
                 self.random_compute_result_root_hash,
             ))
         };
+        let (_tx, rx) = oneshot::channel();
         let pipeline_execution_res =
-            res.map(|res| PipelineExecutionResult::new(vec![], res, Duration::from_secs(0)));
+            res.map(|res| PipelineExecutionResult::new(vec![], res, Duration::from_secs(0), rx));
         Box::pin(async move { pipeline_execution_res })
     }
 

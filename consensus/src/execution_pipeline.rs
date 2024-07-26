@@ -52,7 +52,7 @@ impl ExecutionPipeline {
         let (prepare_block_tx, prepare_block_rx) = mpsc::unbounded_channel();
         let (execute_block_tx, execute_block_rx) = mpsc::unbounded_channel();
         let (ledger_apply_tx, ledger_apply_rx) = mpsc::unbounded_channel();
-        let (prec_commit_tx, pre_commit_rx) = mpsc::unbounded_channel();
+        let (pre_commit_tx, pre_commit_rx) = mpsc::unbounded_channel();
 
         runtime.spawn(Self::prepare_block_stage(
             prepare_block_rx,
@@ -65,7 +65,7 @@ impl ExecutionPipeline {
         ));
         runtime.spawn(Self::ledger_apply_stage(
             ledger_apply_rx,
-            prec_commit_tx,
+            pre_commit_tx,
             executor.clone(),
         ));
         runtime.spawn(Self::pre_commit_stage(pre_commit_rx, executor));
@@ -251,17 +251,30 @@ impl ExecutionPipeline {
                 .map(|output| (output, execution_duration))
             }
             .await;
-            let (commit_tx, commit_rx) = oneshot::channel();
+            let (pre_commit_result_tx, pre_commit_result_rx) = oneshot::channel();
+            if res.is_err() {
+                // no need to call pre-commit, but still put an error on the channel in case
+                // the outer loop pulls it.
+                pre_commit_result_tx
+                    .send(Err(ExecutorError::PreCommitSkipped))
+                    .expect("Impossible, just created.");
+            } else {
+                pre_commit_tx
+                    .send(PreCommitCommand {
+                        block_id,
+                        parent_block_id,
+                        result_tx: pre_commit_result_tx,
+                    })
+                    .expect("Failed to send block to pre-commit stage.");
+            };
             let pipe_line_res = res.map(|(output, execution_duration)| {
-                PipelineExecutionResult::new(input_txns, output, execution_duration, commit_rx)
+                PipelineExecutionResult::new(
+                    input_txns,
+                    output,
+                    execution_duration,
+                    pre_commit_result_rx,
+                )
             });
-            pre_commit_tx
-                .send(PreCommitCommand {
-                    block_id,
-                    parent_block_id,
-                    result_tx: commit_tx,
-                })
-                .expect("Failed to send block to pre_commit stage.");
             result_tx.send(pipe_line_res).unwrap_or_else(|err| {
                 error!(
                     block_id = block_id,
@@ -288,7 +301,7 @@ impl ExecutionPipeline {
                 monitor!(
                     "pre_commit",
                     tokio::task::spawn_blocking(move || {
-                        executor.pre_commit(block_id, parent_block_id)
+                        executor.pre_commit_block(block_id, parent_block_id)
                     })
                 )
                 .await
@@ -298,7 +311,7 @@ impl ExecutionPipeline {
             result_tx.send(res).unwrap_or_else(|err| {
                 error!(
                     block_id = block_id,
-                    "Failed to send back execution result for block {}: {:?}", block_id, err,
+                    "Failed to send back pre-commit result for block {}: {:?}", block_id, err,
                 );
             });
         }
