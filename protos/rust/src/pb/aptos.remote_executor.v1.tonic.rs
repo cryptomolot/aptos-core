@@ -230,7 +230,8 @@ pub mod network_message_service_server {
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                (*inner).simple_msg_exchange(request).await
+                                tokio::spawn( async move { (*inner).simple_msg_exchange(request).await });
+                                Ok(tonic::Response::new(super::Empty {}) )
                             };
                             Box::pin(fut)
                         }

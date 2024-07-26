@@ -3162,6 +3162,7 @@ dependencies = [
  "pbjson",
  "prost 0.12.3",
  "serde",
+ "tokio",
  "tonic 0.11.0",
 ]
 
