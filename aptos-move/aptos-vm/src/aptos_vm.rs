@@ -2643,6 +2643,26 @@ impl VMValidator for AptosVM {
             ),
         };
 
+        match txn.payload() {
+            TransactionPayload::EntryFunction(entry_fn) => {
+                match get_randomness_annotation(&resolver, &session, entry_fn) {
+                    Ok(Some(_)) => {
+                        // randomness txns
+                    },
+                    Ok(None) => {
+                        // non-randomness txns
+                    },
+                    Err(err) => {
+                        // error handling
+                        let status_code = err.major_status();
+                    },
+                }
+            }
+            _ => {
+                // handle multisig transactions
+            }
+        }
+
         TRANSACTIONS_VALIDATED
             .with_label_values(&[counter_label])
             .inc();
