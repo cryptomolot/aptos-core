@@ -17,6 +17,11 @@ use std::ops::AddAssign;
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize};
 use std::sync::Mutex;
 use std::time::SystemTime;
+use once_cell::sync::Lazy;
+use rand::prelude::StdRng;
+use rand::{Rng, SeedableRng};
+use tokio::runtime::Runtime;
+use tokio::sync::OnceCell;
 use aptos_infallible::duration_since_epoch;
 use aptos_logger::info;
 use aptos_secure_net::grpc_network_service::outbound_rpc_helper::OutboundRpcHelper;
@@ -25,11 +30,13 @@ use aptos_types::transaction::analyzed_transaction::AnalyzedTransaction;
 use aptos_vm::sharded_block_executor::sharded_executor_service::{CmdsAndMetaData, TransactionIdxAndOutput};
 use aptos_vm::sharded_block_executor::streamed_transactions_provider::BlockingTransactionsProvider;
 
+pub static OUTBOUND_RPC_RUNTIME: OnceCell<Arc<Runtime>> = OnceCell::const_new();
+
 pub struct RemoteCoordinatorClient {
     state_view_client: Arc<RemoteStateViewClient>,
     command_rx: Arc<Receiver<Message>>,
     //result_tx: Sender<Message>,
-    result_tx: Arc<Mutex<OutboundRpcHelper>>,
+    result_tx: Vec<Arc<tokio::sync::Mutex<OutboundRpcHelper>>>,
     shard_id: ShardId,
     cmd_rx_msg_duration_since_epoch: Arc<AtomicU64>,
     is_block_init_done: Arc<AtomicBool>,//Mutex<bool>,
@@ -43,11 +50,16 @@ impl RemoteCoordinatorClient {
         controller: &mut NetworkController,
         coordinator_address: SocketAddr,
     ) -> Self {
+        OUTBOUND_RPC_RUNTIME.set(controller.get_outbound_rpc_runtime().clone()).unwrap();
         let execute_command_type = format!("execute_command_{}", shard_id);
         let execute_result_type = format!("execute_result_{}", shard_id);
         let command_rx = controller.create_inbound_channel(execute_command_type);
-        let result_tx = Arc::new(Mutex::new(OutboundRpcHelper::new(controller.get_self_addr(), coordinator_address, controller.get_outbound_rpc_runtime())));
-            //controller.create_outbound_channel(coordinator_address, execute_result_type);
+
+        let num_result_tx_threads = 4;
+        let mut result_tx = vec![];
+        for _ in 0..num_result_tx_threads {
+            result_tx.push(Arc::new(tokio::sync::Mutex::new(OutboundRpcHelper::new(controller.get_self_addr(), coordinator_address, controller.get_outbound_rpc_runtime()))));
+        }
         let cmd_rx_thread_pool = Arc::new(
             rayon::ThreadPoolBuilder::new()
                 .thread_name(move |index| format!("remote-state-view-shard-send-request-{}-{}", shard_id, index))
@@ -137,6 +149,7 @@ impl RemoteCoordinatorClient {
         }
         //let num_txns_processed_rc = Arc::new(AtomicUsize::new(num_txns_processed));
         let mut break_out = false;
+        let mut rng = StdRng::from_entropy();
         loop {
             if break_out {
                 //info!("Breaking out of the loop.............................");
@@ -158,6 +171,7 @@ impl RemoteCoordinatorClient {
                         is_block_init_done_clone.store(false, std::sync::atomic::Ordering::Relaxed);
                         break_out = true;
                     }
+                    let random_number = rng.gen::<u64>();
                     cmd_rx_thread_pool_clone.spawn(move || {
                         let delta = get_delta_time(message.start_ms_since_epoch.unwrap());
                         REMOTE_EXECUTOR_CMD_RESULTS_RND_TRP_JRNY_TIMER
@@ -182,7 +196,7 @@ impl RemoteCoordinatorClient {
                         let batch_start_index = txns.batch_start_index;
                         let state_keys = Self::extract_state_keys_from_txns(&transactions);
 
-                        state_view_client_clone.pre_fetch_state_values(state_keys, false, message.shard_id.unwrap());
+                        state_view_client_clone.pre_fetch_state_values(state_keys, false, message.shard_id.unwrap(), random_number);
 
                         let _ = transactions.into_iter().enumerate().for_each(|(idx, txn)| {
                             blocking_transactions_provider_clone.set_txn(idx + batch_start_index, txn);
@@ -219,7 +233,7 @@ impl CoordinatorClient<RemoteStateViewClient> for RemoteCoordinatorClient {
                             .start_timer();
                         let state_keys = Self::extract_state_keys(&command);
                         self.state_view_client.init_for_block();
-                        self.state_view_client.pre_fetch_state_values(state_keys, false, 1);
+                        self.state_view_client.pre_fetch_state_values(state_keys, false, 1, 0);
                         drop(init_prefetch_timer);
 
                         let (sub_blocks, concurrency, onchain_config) = command.into();
@@ -265,7 +279,7 @@ impl CoordinatorClient<RemoteStateViewClient> for RemoteCoordinatorClient {
                 let curr_time = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis() as u64;
                 info!("Checkpoint 1.2 at time: {}", curr_time);
                 let state_keys = Self::extract_state_keys_from_txns(&txns.cmds);
-                self.state_view_client.pre_fetch_state_values(state_keys, false, 1);
+                self.state_view_client.pre_fetch_state_values(state_keys, false, 1, 0);
                 let curr_time = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis() as u64;
                 info!("Checkpoint 1.3 at time: {}", curr_time);
                 let num_txns = txns.num_txns;
@@ -315,23 +329,24 @@ impl CoordinatorClient<RemoteStateViewClient> for RemoteCoordinatorClient {
     }
 
     fn send_execution_result(&mut self, result: Result<Vec<Vec<TransactionOutput>>, VMStatus>) {
-        let execute_result_type = format!("execute_result_{}", self.shard_id);
-        let duration_since_epoch = self.cmd_rx_msg_duration_since_epoch.load(std::sync::atomic::Ordering::Relaxed);
-        let remote_execution_result = RemoteExecutionResult::new(result);
-        let bcs_ser_timer = REMOTE_EXECUTOR_TIMER
-            .with_label_values(&[&self.shard_id.to_string(), "result_tx_bcs_ser"])
-            .start_timer();
-        let output_message = bcs::to_bytes(&remote_execution_result).unwrap();
-        drop(bcs_ser_timer);
-        let delta = get_delta_time(duration_since_epoch);
-        REMOTE_EXECUTOR_CMD_RESULTS_RND_TRP_JRNY_TIMER
-            .with_label_values(&["6_results_tx_msg_shard_send"]).observe(delta as f64);
-        self.result_tx.lock().unwrap().send(Message::create_with_metadata(output_message, duration_since_epoch, 0, 0), &MessageType::new(execute_result_type));
+        unimplemented!("send_execution_result not implemented");
+        // let execute_result_type = format!("execute_result_{}", self.shard_id);
+        // let duration_since_epoch = self.cmd_rx_msg_duration_since_epoch.load(std::sync::atomic::Ordering::Relaxed);
+        // let remote_execution_result = RemoteExecutionResult::new(result);
+        // let bcs_ser_timer = REMOTE_EXECUTOR_TIMER
+        //     .with_label_values(&[&self.shard_id.to_string(), "result_tx_bcs_ser"])
+        //     .start_timer();
+        // let output_message = bcs::to_bytes(&remote_execution_result).unwrap();
+        // drop(bcs_ser_timer);
+        // let delta = get_delta_time(duration_since_epoch);
+        // REMOTE_EXECUTOR_CMD_RESULTS_RND_TRP_JRNY_TIMER
+        //     .with_label_values(&["6_results_tx_msg_shard_send"]).observe(delta as f64);
+        // self.result_tx.lock().unwrap().send(Message::create_with_metadata(output_message, duration_since_epoch, 0, 0), &MessageType::new(execute_result_type));
     }
 
-    fn stream_execution_result(&mut self, txn_idx_output: Vec<TransactionIdxAndOutput>) {
+    fn stream_execution_result(&mut self, txn_idx_output: Vec<TransactionIdxAndOutput>, rand_number: u64) {
         //info!("Sending output to coordinator for txn_idx: {:?}", txn_idx_output.txn_idx);
-        let result_tx_clone = self.result_tx.clone();
+        let result_tx_clone = self.result_tx[rand_number as usize % self.result_tx.len()].clone();
         let shard_id_clone = self.shard_id.clone();
         self.result_tx_thread_pool.spawn(move || {
             let bcs_ser_timer = REMOTE_EXECUTOR_TIMER
@@ -343,7 +358,10 @@ impl CoordinatorClient<RemoteStateViewClient> for RemoteCoordinatorClient {
             let tx_send_timer = REMOTE_EXECUTOR_TIMER
                 .with_label_values(&[&shard_id_clone.to_string(), "result_tx_send"])
                 .start_timer();
-            result_tx_clone.lock().unwrap().send(Message::new(output_message), &MessageType::new(execute_result_type));
+            // result_tx_clone.lock().unwrap().send(Message::new(output_message), &MessageType::new(execute_result_type));
+            OUTBOUND_RPC_RUNTIME.get().unwrap().spawn(async move {
+                result_tx_clone.lock().await.send_async(Message::new(output_message), &MessageType::new(execute_result_type)).await;
+            });
             let curr_time = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis() as u64;
             info!("Sent cmd results batch at time: {}", curr_time);
         });

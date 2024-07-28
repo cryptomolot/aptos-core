@@ -99,17 +99,22 @@ impl NetworkMessageService for GRPCNetworkMessageServiceServerWrapper {
         &self,
         request: Request<NetworkMessage>,
     ) -> Result<Response<Empty>, Status> {
+        let start_time = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis() as u64;
         let _timer = NETWORK_HANDLER_TIMER
             .with_label_values(&[&self.self_addr.to_string(), "inbound_msgs"])
             .start_timer();
         let remote_addr = request.remote_addr();
         let network_message = request.into_inner();
+        let message_type = network_message.message_type.clone();
+        let seq_num = network_message.seq_no;
+        let shard_id = network_message.shard_id;
+
         let msg = match network_message.ms_since_epoch {
             Some(ms_since_epoch) => Message::create_with_metadata(
                 network_message.message,
                 ms_since_epoch,
-                network_message.seq_no.unwrap(),
-                network_message.shard_id.unwrap(),
+                network_message.seq_no.unwrap_or_default(),
+                network_message.shard_id.unwrap_or_default(),
             ),
             None => Message::new(network_message.message),
         };
@@ -122,6 +127,9 @@ impl NetworkMessageService for GRPCNetworkMessageServiceServerWrapper {
             if curr_time > msg.start_ms_since_epoch.unwrap() {
                 delta = (curr_time - msg.start_ms_since_epoch.unwrap());
             }
+            REMOTE_EXECUTOR_RND_TRP_JRNY_TIMER
+                .with_label_values(&["network_message_latency"]).observe(delta as f64);
+
             if message_type.get_type() == "remote_kv_request" {
                 REMOTE_EXECUTOR_RND_TRP_JRNY_TIMER
                     .with_label_values(&["2_kv_req_coord_grpc_recv"]).observe(delta as f64);
@@ -160,6 +168,12 @@ impl NetworkMessageService for GRPCNetworkMessageServiceServerWrapper {
                 remote_addr, message_type
             );
         }
+        let end_time = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis() as u64;
+        let threshold = 25;
+        if end_time - start_time > threshold {
+            info!("GRPC request processed in {} > {} ms. The message info: message_type: {:?}, seg_num {:?}, shard_id {:?}",
+                          end_time - start_time, threshold, message_type, seq_num, shard_id);
+        }
         Ok(Response::new(Empty {}))
     }
 }
@@ -192,10 +206,11 @@ impl GRPCNetworkMessageServiceClientWrapper {
         message: Message,
         mt: &MessageType,
     ) {
+        let curr_time = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis() as u64;
         let request = tonic::Request::new(NetworkMessage {
             message: message.data,
             message_type: mt.get_type(),
-            ms_since_epoch: message.start_ms_since_epoch,
+            ms_since_epoch: Some(curr_time), //message.start_ms_since_epoch,
             seq_no: message.seq_num,
             shard_id: message.shard_id,
         });
