@@ -323,6 +323,9 @@ impl<S: StateView + Sync + Send + 'static> RemoteStateViewService<S> {
         let resp = state_keys
             .into_iter()
             .map(|state_key| {
+                if state_view.read().unwrap().as_ref().is_none() {
+                    panic!("State view is not set for kv request: seq_num: {}, shard_id: {}", message.seq_num.unwrap(), message.shard_id.unwrap());
+                }
                 let state_value = state_view
                     .read()
                     .unwrap()
