@@ -264,46 +264,6 @@ impl<S: StateView + Sync + Send + 'static> ShardedExecutorService<S> {
             };
 
             cumulative_txns += num_txns_in_the_block;
-            /*let blocking_transactions_provider_clone = blocking_transactions_provider.clone();
-
-            let coordinator_client_clone_2 = self.coordinator_client.clone();
-            thread::spawn(move || {
-                let mut num_txns_processed = 0;
-                loop {
-                    num_txns_processed += transactions.len();
-                    let _ = transactions.into_iter().enumerate().for_each(|(idx, txn)| {
-                        blocking_transactions_provider_clone.set_txn(idx + batch_start_index, txn);
-                    });
-                    if num_txns_processed == num_txns_in_the_block {
-                        coordinator_client_clone_2.lock().unwrap().reset_block_init();
-                        break;
-                    }
-                    let command2 = coordinator_client_clone_2.lock().unwrap().receive_execute_command_stream();
-                    let txnsAndStIdx = match command2 {
-                        StreamedExecutorShardCommand::InitBatch(
-                            _,
-                            _,
-                            _,
-                            _,
-                            _,
-                            _,
-                        ) => {
-                            panic!("Init Batch must not be called before executing all txns in the block");
-                        },
-                        StreamedExecutorShardCommand::ExecuteBatch(
-                            transactions,
-                            batch_start_index,
-                        ) => {
-                            (transactions, batch_start_index)
-                        },
-                        StreamedExecutorShardCommand::Stop => {
-                            break;
-                        },
-                    };
-                    transactions = txnsAndStIdx.0;
-                    batch_start_index = txnsAndStIdx.1;
-                }
-            });*/
 
             let (stream_results_tx, stream_results_rx) = unbounded();
             let coordinator_client_clone = self.coordinator_client.clone();

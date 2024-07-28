@@ -92,7 +92,7 @@ impl RemoteStateViewClient {
         controller: &mut NetworkController,
         coordinator_address: SocketAddr,
     ) -> Self {
-        let num_kv_req_threads = num_cpus::get() / 2;
+        let num_kv_req_threads = 4; //num_cpus::get() / 2;
         let thread_pool = Arc::new(
             rayon::ThreadPoolBuilder::new()
                 .thread_name(move |index| format!("remote-state-view-shard-send-request-{}-{}", shard_id, index))
@@ -113,7 +113,7 @@ impl RemoteStateViewClient {
             result_rx,
             rayon::ThreadPoolBuilder::new()
                 .thread_name(move |index| format!("remote-state-view-shard-recv-resp-{}-{}", shard_id, index))
-                .num_threads(num_cpus::get() / 2)
+                .num_threads(num_kv_req_threads)
                 .build()
                 .unwrap(),
         );
@@ -241,10 +241,10 @@ impl TStateView for RemoteStateViewClient {
             return state_view_reader.get_state_value(state_key);
         }
         // If the value is not already in the cache then we pre-fetch it and wait for it to arrive.
-        REMOTE_EXECUTOR_REMOTE_KV_COUNT
-            .with_label_values(&[&self.shard_id.to_string(), "non_prefetch_kv"])
-            .inc();
-        self.pre_fetch_state_values(vec![state_key.clone()], true, 0, 0);
+        // REMOTE_EXECUTOR_REMOTE_KV_COUNT
+        //     .with_label_values(&[&self.shard_id.to_string(), "non_prefetch_kv"])
+        //     .inc();
+        // self.pre_fetch_state_values(vec![state_key.clone()], true, 0, 0);
         state_view_reader.get_state_value(state_key)
     }
 
