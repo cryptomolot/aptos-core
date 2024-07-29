@@ -169,7 +169,7 @@ impl RemoteStateViewClient {
                 }
                 let outbound_rpc_scheduler_clone = outbound_rpc_scheduler.clone();
                 //thread_pool.spawn_fifo(move || {
-                    Self::send_state_value_request(shard_id, sender, state_keys, rand_number, seq_num, outbound_rpc_scheduler_clone);
+                    Self::send_state_value_request(shard_id, sender, state_keys, rand_number as usize, seq_num, outbound_rpc_scheduler_clone);
                 //});
             });
     }
