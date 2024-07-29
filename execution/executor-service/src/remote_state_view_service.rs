@@ -99,7 +99,7 @@ impl<S: StateView + Sync + Send + 'static> RemoteStateViewService<S> {
         let num_shards = remote_shard_addresses.len();
         info!("num threads for remote state view service: {}", num_threads);
 
-        let kv_proc_rt = runtime::Builder::new_multi_thread().worker_threads(100).enable_all().thread_name("kv_proc").build().unwrap();
+        let kv_proc_rt = runtime::Builder::new_multi_thread().worker_threads(180).enable_all().thread_name("kv_proc").build().unwrap();
         let kv_request_type = "remote_kv_request";
         let kv_response_type = "remote_kv_response";
         let result_rx = controller.create_inbound_channel(kv_request_type.to_string());
