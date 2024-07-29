@@ -271,8 +271,9 @@ impl<S: StateView + Sync + Send + 'static> RemoteExecutorClient<S> {
             let mut num_outputs_received: u64 = 0;
             loop {
                 let received_msg = self.result_rxs[shard_id].recv().unwrap();
+                let num_txn = received_msg.shard_id.unwrap();
                 let seq_num = received_msg.seq_num.unwrap();
-                num_outputs_received += seq_num;
+                num_outputs_received += num_txn;
                 let current_time = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis() as u64;
                 deser_tx.send(received_msg).unwrap();
                 info!("Received result batch {} from shard {} at time {}", seq_num, shard_id, current_time);

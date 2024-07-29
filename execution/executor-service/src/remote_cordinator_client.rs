@@ -349,6 +349,7 @@ impl CoordinatorClient<RemoteStateViewClient> for RemoteCoordinatorClient {
         let result_tx_clone = self.result_tx[rand_number as usize % self.result_tx.len()].clone();
         let shard_id_clone = self.shard_id.clone();
         self.result_tx_thread_pool.spawn(move || {
+            let num_txns = txn_idx_output.len();
             let bcs_ser_timer = REMOTE_EXECUTOR_TIMER
                 .with_label_values(&[&shard_id_clone.to_string(), "result_tx_bcs_ser"])
                 .start_timer();
@@ -360,7 +361,7 @@ impl CoordinatorClient<RemoteStateViewClient> for RemoteCoordinatorClient {
                 .start_timer();
             // result_tx_clone.lock().unwrap().send(Message::new(output_message), &MessageType::new(execute_result_type));
             OUTBOUND_RPC_RUNTIME.get().unwrap().spawn(async move {
-                result_tx_clone.lock().await.send_async(Message::create_with_metadata(output_message, 0, seq_num, 0), &MessageType::new(execute_result_type)).await;
+                result_tx_clone.lock().await.send_async(Message::create_with_metadata(output_message, 0, seq_num, num_txns as u64), &MessageType::new(execute_result_type)).await;
             });
             let curr_time = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis() as u64;
             info!("Sent cmd results batch at time: {}", curr_time);
