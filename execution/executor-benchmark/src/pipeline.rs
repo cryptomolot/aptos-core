@@ -167,7 +167,7 @@ where
                     stage_executed += block_size;
                     exe.execute_block(current_block_start_time, partition_time, block);
                     info!("Finished executing block");
-                    println!("Finished executing block {}", num_block);
+                    eprintln!("Finished executing block {}", num_block);
                     num_block += 1;
 
                     // Empty blocks indicate the end of a stage.
