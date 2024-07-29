@@ -95,7 +95,7 @@ impl<S: StateView + Sync + Send + 'static> RemoteStateViewService<S> {
         num_threads: Option<usize>,
     ) -> Self {
         let num_threads = num_threads.unwrap_or_else(num_cpus::get);
-        let num_kv_req_threads = 60; //num_cpus::get() / 2;
+        let num_kv_req_threads = 120; //num_cpus::get() / 2;
         let num_shards = remote_shard_addresses.len();
         info!("num threads for remote state view service: {}", num_threads);
 
@@ -183,7 +183,12 @@ impl<S: StateView + Sync + Send + 'static> RemoteStateViewService<S> {
                 .with_label_values(&["0", "kv_requests_handler_timer"])
                 .start_timer();
 
-            let priority = message.seq_num.unwrap();
+            let priority = if message.seq_num.unwrap() == 0 {
+                0
+            }
+            else {
+                message.seq_num.unwrap() + 100 //to give priority to cmd messages
+            };
 
             // let recv_condition_clone = self.recv_condition.clone();
             // let kv_unprocessed_pq_clone = self.kv_unprocessed_pq.clone();
