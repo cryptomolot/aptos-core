@@ -154,7 +154,7 @@ impl<S: StateView + Sync + Send + 'static> RemoteExecutorClient<S> {
         let cmd_tx_thread_pool = Arc::new(
             rayon::ThreadPoolBuilder::new()
                 .thread_name(move |index| format!("rmt-exe-cli-cmd-tx-{}", index))
-                .num_threads(24) //num_cpus::get() / 2)
+                .num_threads(30) //num_cpus::get() / 2)
                 .build()
                 .unwrap(),
         );
@@ -237,7 +237,7 @@ impl<S: StateView + Sync + Send + 'static> RemoteExecutorClient<S> {
         let total_expected_outputs = expected_outputs.iter().sum::<u64>();
         let mut results = vec![TransactionOutput::default(); total_expected_outputs as usize];
         let results_ptr = Pointer(results.as_mut_ptr());
-        let num_deser_threads = 48;
+        let num_deser_threads = 30;
         let deser_thread_pool = Arc::new(
             rayon::ThreadPoolBuilder::new()
                 .thread_name(move |index| format!("rmt-exe-cli-res-rx-{}", index))
