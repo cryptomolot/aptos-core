@@ -249,13 +249,25 @@ impl NetworkController {
         Self {
             inbound_handler,
             outbound_handler,
-            inbound_rpc_runtime: runtime::Builder::new_multi_thread().worker_threads(60).enable_all().thread_name("inbound_rpc").build().unwrap(),
-            outbound_rpc_runtime: Arc::new(runtime::Builder::new_multi_thread().worker_threads(60).enable_all().thread_name("outbound_rpc").build().unwrap()),
+            inbound_rpc_runtime: runtime::Builder::new_multi_thread()
+                .worker_threads(120)
+                .disable_lifo_slot()
+                .enable_all()
+                .thread_name("inbound_rpc")
+                .build()
+                .unwrap(),
+            outbound_rpc_runtime: Arc::new(runtime::Builder::new_multi_thread()
+                .worker_threads(120)
+                .disable_lifo_slot()
+                .enable_all()
+                .thread_name("outbound_rpc")
+                .build()
+                .unwrap()),
             // we initialize the shutdown handles when we start the network controller
             inbound_server_shutdown_tx: None,
             outbound_task_shutdown_tx: None,
             listen_addr,
-            outbound_rpc_scheduler: Arc::new(OutboundRpcScheduler::new(Arc::new(runtime::Builder::new_multi_thread().worker_threads(60).enable_all().thread_name("outbound_rpc_scheduler").build().unwrap()))),
+            outbound_rpc_scheduler: Arc::new(OutboundRpcScheduler::new(Arc::new(runtime::Builder::new_multi_thread().worker_threads(30).disable_lifo_slot().enable_all().thread_name("outbound_rpc_scheduler").build().unwrap()))),
         }
     }
 
