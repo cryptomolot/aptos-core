@@ -297,7 +297,7 @@ impl<S: StateView + Sync + Send + 'static> RemoteExecutorClient<S> {
         REMOTE_EXECUTOR_CMD_RESULTS_RND_TRP_JRNY_TIMER
             .with_label_values(&["9_2_results_rx_all_shards"]).observe(delta as f64);
 
-        Ok(results.to_vec())
+        Ok(results)
     }
 }
 
