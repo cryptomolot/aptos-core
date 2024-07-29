@@ -21,7 +21,7 @@ use crossbeam_channel::{Receiver, Sender};
 use once_cell::sync::{Lazy, OnceCell};
 use std::{
     net::{IpAddr, Ipv4Addr, SocketAddr},
-    sync::{Arc},
+    sync::{Arc, Mutex},
     thread,
 };
 use std::ops::Deref;
@@ -34,7 +34,6 @@ use rand::{Rng, SeedableRng};
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use rayon::slice::ParallelSlice;
 use aptos_drop_helper::DEFAULT_DROPPER;
-use aptos_infallible::Mutex;
 use aptos_secure_net::grpc_network_service::outbound_rpc_helper::OutboundRpcHelper;
 use aptos_secure_net::network_controller::metrics::{get_delta_time, REMOTE_EXECUTOR_CMD_RESULTS_RND_TRP_JRNY_TIMER};
 use aptos_types::transaction::analyzed_transaction::AnalyzedTransaction;
@@ -268,7 +267,7 @@ impl<S: StateView + Sync + Send + 'static> RemoteExecutorClient<S> {
                 deser_finished_tx_clone.send(()).unwrap();
             });
         }
-        (0..self.num_shards() / 2).into_par_iter().for_each(|shard_id| {
+        (0..self.num_shards()).into_par_iter().for_each(|shard_id| {
             let mut num_outputs_received: u64 = 0;
             loop {
                 let received_msg = self.result_rxs[shard_id].recv().unwrap();
@@ -375,10 +374,10 @@ impl<S: StateView + Sync + Send + 'static> ExecutorClient<S> for RemoteExecutorC
                         let timer_1 = REMOTE_EXECUTOR_TIMER
                             .with_label_values(&["0", "cmd_tx_lock_send"])
                             .start_timer();
-                        // senders[shard_id][rand_send_thread_idx]
-                        //     .lock()
-                        //     .unwrap()
-                        //     .send(msg, &MessageType::new(execute_command_type));
+                        senders[shard_id][rand_send_thread_idx]
+                            .lock()
+                            .unwrap()
+                            .send(msg, &MessageType::new(execute_command_type));
                         let current_time = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis() as u64;
                         info!("Sent cmd batch {} to shard {} at time {}", chunk_idx, shard_id, current_time);
                         drop(timer_1)
