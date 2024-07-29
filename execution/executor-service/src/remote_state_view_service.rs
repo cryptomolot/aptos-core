@@ -100,7 +100,7 @@ impl<S: StateView + Sync + Send + 'static> RemoteStateViewService<S> {
         info!("num threads for remote state view service: {}", num_threads);
 
         let kv_proc_rt = runtime::Builder::new_multi_thread()
-            .worker_threads(120)
+            .worker_threads(30)
             .disable_lifo_slot()
             .enable_all()
             .thread_name("kv_proc")
