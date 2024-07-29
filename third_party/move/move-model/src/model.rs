@@ -3200,6 +3200,7 @@ impl<'env> ModuleEnv<'env> {
             print_code: true,
             print_basic_blocks: true,
             print_locals: true,
+            print_bytecode_stats: true,
         });
         Some(
             disas

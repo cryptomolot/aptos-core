@@ -25,7 +25,7 @@ struct Args {
     #[clap(long = "skip-private")]
     pub skip_private: bool,
 
-    /// Do not print the disassembled bytecodes of each function.
+    /// Do not print the disassembled bytecode for each function.
     #[clap(long = "skip-code")]
     pub skip_code: bool,
 
@@ -123,9 +123,9 @@ fn main() {
         );
     }
 
-    let dissassemble_string = disassembler.disassemble().expect("Unable to dissassemble");
+    let disassemble_string = disassembler.disassemble().expect("Unable to disassemble");
 
-    println!("{}", dissassemble_string);
+    println!("{}", disassemble_string);
 }
 
 #[test]
