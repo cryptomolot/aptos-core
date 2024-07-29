@@ -277,13 +277,13 @@ impl<S: StateView + Sync + Send + 'static> ShardedExecutorService<S> {
                     let txn_idx_output: TransactionIdxAndOutput = stream_results_rx.recv().unwrap();
                     if txn_idx_output.txn_idx == u32::MAX {
                         if !curr_batch.is_empty() {
-                            coordinator_client_clone.lock().unwrap().stream_execution_result(curr_batch, rand_number);
+                            coordinator_client_clone.lock().unwrap().stream_execution_result(curr_batch, seq_num, rand_number);
                         }
                         break;
                     }
                     curr_batch.push(txn_idx_output);
                     if curr_batch.len() == batch_size {
-                        coordinator_client_clone.lock().unwrap().stream_execution_result(curr_batch, rand_number);
+                        coordinator_client_clone.lock().unwrap().stream_execution_result(curr_batch, seq_num, rand_number);
                         curr_batch = vec![];
                         seq_num += 1;
                     }

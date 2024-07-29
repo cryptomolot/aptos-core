@@ -228,6 +228,15 @@ impl<S: StateView + Sync + Send + 'static> RemoteExecutorClient<S> {
 
     fn get_streamed_output_from_shards(&self, expected_outputs: Vec<u64>, duration_since_epoch: u64) -> Result<Vec<TransactionOutput>, VMStatus> {
         //info!("expected outputs {:?} ", expected_outputs);
+        // let num_deser_threads = 24;
+        // let deser_thread_pool = Arc::new(
+        //     rayon::ThreadPoolBuilder::new()
+        //         .thread_name(move |index| format!("rmt-exe-cli-res-rx-{}", index))
+        //         .num_threads(num_deser_threads)
+        //         .build()
+        //         .unwrap(),
+        // );
+        // let (deser_tx, deser_rx) = crossbeam_channel::unbounded();
         let results: Vec<Vec<TransactionIdxAndOutput>> = (0..self.num_shards()).into_par_iter().map(|shard_id| {
             let mut num_outputs_received: u64 = 0;
             let mut outputs = vec![];
@@ -236,8 +245,11 @@ impl<S: StateView + Sync + Send + 'static> RemoteExecutorClient<S> {
                 let bcs_deser_timer = REMOTE_EXECUTOR_TIMER
                     .with_label_values(&["0", "result_rx_bcs_deser"])
                     .start_timer();
+                let seq_num = received_msg.seq_num.unwrap();
                 let result: Vec<TransactionIdxAndOutput> = bcs::from_bytes(&received_msg.to_bytes()).unwrap();
                 drop(bcs_deser_timer);
+                let current_time = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis() as u64;
+                info!("Received result batch {} from shard {} at time {}", seq_num, shard_id, current_time);
                 num_outputs_received += result.len() as u64;
                 //info!("Streamed output from shard {}; txn_id {}", shard_id, result.txn_idx);
                 outputs.extend(result);
@@ -245,8 +257,6 @@ impl<S: StateView + Sync + Send + 'static> RemoteExecutorClient<S> {
                     let delta = get_delta_time(duration_since_epoch);
                     REMOTE_EXECUTOR_CMD_RESULTS_RND_TRP_JRNY_TIMER
                         .with_label_values(&["9_1_results_tx_msg_remote_exe_recv"]).observe(delta as f64);
-                    let current_time = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis() as u64;
-                    info!("Received last cmd batch from shard {} at time {}", shard_id, current_time);
                     break;
                 }
             }

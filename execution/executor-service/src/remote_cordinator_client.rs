@@ -344,7 +344,7 @@ impl CoordinatorClient<RemoteStateViewClient> for RemoteCoordinatorClient {
         // self.result_tx.lock().unwrap().send(Message::create_with_metadata(output_message, duration_since_epoch, 0, 0), &MessageType::new(execute_result_type));
     }
 
-    fn stream_execution_result(&mut self, txn_idx_output: Vec<TransactionIdxAndOutput>, rand_number: u64) {
+    fn stream_execution_result(&mut self, txn_idx_output: Vec<TransactionIdxAndOutput>, seq_num: u64, rand_number: u64) {
         //info!("Sending output to coordinator for txn_idx: {:?}", txn_idx_output.txn_idx);
         let result_tx_clone = self.result_tx[rand_number as usize % self.result_tx.len()].clone();
         let shard_id_clone = self.shard_id.clone();
@@ -360,7 +360,7 @@ impl CoordinatorClient<RemoteStateViewClient> for RemoteCoordinatorClient {
                 .start_timer();
             // result_tx_clone.lock().unwrap().send(Message::new(output_message), &MessageType::new(execute_result_type));
             OUTBOUND_RPC_RUNTIME.get().unwrap().spawn(async move {
-                result_tx_clone.lock().await.send_async(Message::new(output_message), &MessageType::new(execute_result_type)).await;
+                result_tx_clone.lock().await.send_async(Message::create_with_metadata(output_message, 0, seq_num, 0), &MessageType::new(execute_result_type)).await;
             });
             let curr_time = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis() as u64;
             info!("Sent cmd results batch at time: {}", curr_time);

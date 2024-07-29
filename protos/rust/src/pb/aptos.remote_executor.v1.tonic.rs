@@ -1,8 +1,6 @@
 // Copyright (c) Aptos Foundation
 // SPDX-License-Identifier: Apache-2.0
 
-use log::info;
-
 // @generated
 /// Generated client implementations.
 pub mod network_message_service_client {
@@ -126,6 +124,8 @@ pub mod network_message_service_client {
             let end_time = std::time::SystemTime::now().duration_since(std::time::SystemTime::UNIX_EPOCH).unwrap().as_millis() as u64;
             if end_time - start_time > threshold {
                 eprintln!("GRPC request took more {:?} ms > {:?}. The message info: message_type: {:?}, seg_num {:?}, shard_id {:?}",
+                          end_time - start_time, threshold, message_type, seq_num, shard_id);
+                println!("GRPC request took more {:?} ms > {:?}. The message info: message_type: {:?}, seg_num {:?}, shard_id {:?}",
                           end_time - start_time, threshold, message_type, seq_num, shard_id);
             }
             result
