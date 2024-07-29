@@ -22,6 +22,7 @@ impl RemoteStateValue {
     }
 
     pub fn set_value(&self, value: Option<StateValue>) {
+        let _timer = SHARDED_EXECUTOR_SERVICE_SECONDS.with_label_values(&["0", "kv_recv_wait_time_shard_diff"]).start_timer();
         let (lock, cvar, start_time) = &*self.value_condition;
         let mut status = lock.lock().unwrap();
         *status = RemoteValueStatus::Ready(value);
@@ -31,6 +32,7 @@ impl RemoteStateValue {
     }
 
     pub fn get_value(&self) -> Option<StateValue> {
+        let _timer = SHARDED_EXECUTOR_SERVICE_SECONDS.with_label_values(&["0", "kv_read_wait_time_shard_diff"]).start_timer();
         let (lock, cvar, start_time) = &*self.value_condition;
         let mut status = lock.lock().unwrap();
         while let RemoteValueStatus::Waiting = *status {

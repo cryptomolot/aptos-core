@@ -151,6 +151,7 @@ where
                 let mut stage_overall_measuring = overall_measuring.clone();
                 let mut stage_executed = 0;
 
+                let mut num_block = 0;
                 while let Ok(msg) = executable_block_receiver.recv() {
                     let ExecuteBlockMessage {
                         current_block_start_time,
@@ -166,6 +167,8 @@ where
                     stage_executed += block_size;
                     exe.execute_block(current_block_start_time, partition_time, block);
                     info!("Finished executing block");
+                    println!("Finished executing block {}", num_block);
+                    num_block += 1;
 
                     // Empty blocks indicate the end of a stage.
                     // Print the accumulated stage stats at that point.
