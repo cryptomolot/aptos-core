@@ -93,7 +93,7 @@ impl RemoteStateViewClient {
         controller: &mut NetworkController,
         coordinator_address: SocketAddr,
     ) -> Self {
-        let num_kv_req_threads = num_cpus::get() / 2;
+        let num_kv_req_threads = 4; //num_cpus::get() / 2;
         let thread_pool = Arc::new(
             rayon::ThreadPoolBuilder::new()
                 .thread_name(move |index| format!("remote-state-view-shard-send-request-{}-{}", shard_id, index))
@@ -114,7 +114,7 @@ impl RemoteStateViewClient {
             result_rx,
             rayon::ThreadPoolBuilder::new()
                 .thread_name(move |index| format!("remote-state-view-shard-recv-resp-{}-{}", shard_id, index))
-                .num_threads(num_cpus::get() / 2)
+                .num_threads(num_kv_req_threads)
                 .build()
                 .unwrap(),
         );
@@ -148,6 +148,7 @@ impl RemoteStateViewClient {
         kv_tx: Arc<Vec<Arc<tokio::sync::Mutex<OutboundRpcHelper>>>>,
         shard_id: ShardId,
         state_keys: Vec<StateKey>,
+        rand_number: u64,
         priority: u64,
         outbound_rpc_scheduler: Arc<OutboundRpcScheduler>,
     ) {
@@ -167,15 +168,13 @@ impl RemoteStateViewClient {
                     seq_num = 0;
                 }
                 let outbound_rpc_scheduler_clone = outbound_rpc_scheduler.clone();
-                thread_pool.spawn_fifo(move || {
-                    let mut rng = StdRng::from_entropy();
-                    let rand_send_thread_idx = rng.gen_range(0, sender.len());
-                    Self::send_state_value_request(shard_id, sender, state_keys, rand_send_thread_idx, seq_num, outbound_rpc_scheduler_clone);
-                });
+                //thread_pool.spawn_fifo(move || {
+                    Self::send_state_value_request(shard_id, sender, state_keys, rand_number, seq_num, outbound_rpc_scheduler_clone);
+                //});
             });
     }
 
-    pub fn pre_fetch_state_values(&self, state_keys: Vec<StateKey>, sync_insert_keys: bool, priority: u64) {
+    pub fn pre_fetch_state_values(&self, state_keys: Vec<StateKey>, sync_insert_keys: bool, rand_number: u64, priority: u64) {
         let state_view_clone = self.state_view.clone();
         let thread_pool_clone = self.thread_pool.clone();
         let kv_tx_clone = self.kv_tx.clone();
@@ -189,6 +188,7 @@ impl RemoteStateViewClient {
                 kv_tx_clone,
                 shard_id,
                 state_keys,
+                rand_number,
                 priority,
                 outbound_rpc_scheduler_clone,
             );
@@ -230,7 +230,7 @@ impl RemoteStateViewClient {
         outbound_rpc_scheduler.send(
             Message::create_with_metadata(request_message, duration_since_epoch, seq_num, shard_id as u64),
             MessageType::new(REMOTE_KV_REQUEST_MSG_TYPE.to_string()),
-            sender[rand_send_thread_idx].clone(),
+            sender[rand_send_thread_idx % sender.len()].clone(),
             seq_num);
         // sender_lk.send(Message::create_with_metadata(request_message, duration_since_epoch, seq_num, shard_id as u64),
         //                &MessageType::new(REMOTE_KV_REQUEST_MSG_TYPE.to_string()));
@@ -255,7 +255,7 @@ impl TStateView for RemoteStateViewClient {
         REMOTE_EXECUTOR_REMOTE_KV_COUNT
             .with_label_values(&[&self.shard_id.to_string(), "non_prefetch_kv"])
             .inc();
-        self.pre_fetch_state_values(vec![state_key.clone()], true, 0);
+        self.pre_fetch_state_values(vec![state_key.clone()], true, 0, 0);
         state_view_reader.get_state_value(state_key)
     }
 
