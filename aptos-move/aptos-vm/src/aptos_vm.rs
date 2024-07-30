@@ -2611,6 +2611,7 @@ impl VMExecutor for AptosVM {
             AptosVM::get_concurrency_level(),
             onchain_config,
         );
+        eprintln!("Time spent on execution {}", _timer.stop_and_discard());
         if ret.is_ok() {
             // Record the histogram count for transactions per block.
             BLOCK_TRANSACTION_COUNT.observe(count as f64);
