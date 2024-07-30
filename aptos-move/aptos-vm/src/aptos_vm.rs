@@ -2605,12 +2605,16 @@ impl VMExecutor for AptosVM {
         let _timer = TIMER
             .with_label_values(&["sharded_block_executor_coordinator_wrapper"])
             .start_timer();
+        let timer2 = TIMER
+            .with_label_values(&["dummy_timer"])
+            .start_timer();
         let ret = sharded_block_executor.execute_block_remote(
             state_view,
             transactions,
             AptosVM::get_concurrency_level(),
             onchain_config,
         );
+        eprintln!("Time spent on execution {}", timer2.stop_and_discard());
         if ret.is_ok() {
             // Record the histogram count for transactions per block.
             BLOCK_TRANSACTION_COUNT.observe(count as f64);
