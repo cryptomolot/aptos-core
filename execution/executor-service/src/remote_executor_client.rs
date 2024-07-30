@@ -337,7 +337,7 @@ impl<S: StateView + Sync + Send + 'static> ExecutorClient<S> for RemoteExecutorC
             .with_label_values(&["0_cmd_tx_start"]).observe(get_delta_time(duration_since_epoch) as f64);
 
         let mut expected_outputs = vec![0; self.num_shards()];
-        let batch_size = 100;
+        let batch_size = 200;
         for (shard_id, _) in sub_blocks.into_iter().enumerate() {
             expected_outputs[shard_id] = transactions.get_ref().0[shard_id].num_txns() as u64;
             // TODO: Check if the function can get Arc<BlockExecutorConfigFromOnchain> instead.
@@ -349,7 +349,7 @@ impl<S: StateView + Sync + Send + 'static> ExecutorClient<S> for RemoteExecutorC
                 let shard_txns = &transactions_clone.get_ref().0[shard_id].sub_blocks[0].transactions;
                 let index_offset = transactions_clone.get_ref().0[shard_id].sub_blocks[0].start_index as usize;
                 let num_txns = shard_txns.len();
-
+                let mut rng = StdRng::from_entropy();
                 let _ = shard_txns
                     .chunks(batch_size)
                     .enumerate()
@@ -372,7 +372,6 @@ impl<S: StateView + Sync + Send + 'static> ExecutorClient<S> for RemoteExecutorC
                         REMOTE_EXECUTOR_CMD_RESULTS_RND_TRP_JRNY_TIMER
                             .with_label_values(&["1_cmd_tx_msg_send"]).observe(get_delta_time(duration_since_epoch) as f64);
                         let execute_command_type = format!("execute_command_{}", shard_id);
-                        let mut rng = StdRng::from_entropy();
                         let rand_send_thread_idx = rng.gen_range(0, senders[shard_id].len());
                         let timer_1 = REMOTE_EXECUTOR_TIMER
                             .with_label_values(&["0", "cmd_tx_lock_send"])
