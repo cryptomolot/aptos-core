@@ -102,7 +102,7 @@ impl<S: StateView + Sync + Send + 'static> RemoteStateViewService<S> {
         info!("num threads for remote state view service: {}", num_threads);
 
         let kv_proc_rt = runtime::Builder::new_multi_thread()
-            .worker_threads(120)
+            .max_blocking_threads(80)
             .disable_lifo_slot()
             .enable_all()
             .thread_name("kv_proc")
@@ -176,11 +176,11 @@ impl<S: StateView + Sync + Send + 'static> RemoteStateViewService<S> {
             let kv_unprocessed_clone = kv_unprocessed.clone();
             let recv_condition_clone = self.recv_condition.clone();
             let outbound_rpc_scheduler_clone = self.outbound_rpc_scheduler.clone();
-            self.kv_proc_runtime.spawn(async move {Self::priority_handler(state_view_clone.clone(),
+            self.kv_proc_runtime.spawn_blocking({Self::priority_handler(state_view_clone.clone(),
                                                       kv_tx_clone.clone(),
                                                       kv_unprocessed_clone.clone(),
                                                       recv_condition_clone.clone(),
-                                                      outbound_rpc_scheduler_clone).await;
+                                                      outbound_rpc_scheduler_clone)
             });
         }
         for thread_id in 0..self.kv_rx.len() {
