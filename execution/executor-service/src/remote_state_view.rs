@@ -92,7 +92,7 @@ impl RemoteStateViewClient {
         controller: &mut NetworkController,
         coordinator_address: SocketAddr,
     ) -> Self {
-        let num_kv_req_threads = 8; //num_cpus::get() / 2;
+        let num_kv_req_threads = num_cpus::get() / 2;
         let thread_pool = Arc::new(
             rayon::ThreadPoolBuilder::new()
                 .thread_name(move |index| format!("remote-state-view-shard-send-request-{}-{}", shard_id, index))
@@ -153,7 +153,7 @@ impl RemoteStateViewClient {
         });
         let mut seq_num = 0;
         state_keys
-            .chunks(1600) //REMOTE_STATE_KEY_BATCH_SIZE)
+            .chunks(800) //REMOTE_STATE_KEY_BATCH_SIZE)
             .map(|state_keys_chunk| state_keys_chunk.to_vec())
             .for_each(|state_keys| {
                 let sender = kv_tx.clone();
