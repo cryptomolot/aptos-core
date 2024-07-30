@@ -376,14 +376,14 @@ impl<S: StateView + Sync + Send + 'static> ExecutorClient<S> for RemoteExecutorC
                         let timer_1 = REMOTE_EXECUTOR_TIMER
                             .with_label_values(&["0", "cmd_tx_lock_send"])
                             .start_timer();
-                        // senders[shard_id][rand_send_thread_idx]
-                        //     .lock()
-                        //     .unwrap()
-                        //     .send(msg, &MessageType::new(execute_command_type));
-                        outbound_rpc_scheduler_clone.send(msg,
-                                                         MessageType::new(execute_command_type),
-                                                         senders[shard_id][rand_send_thread_idx].clone(),
-                                                         chunk_idx as u64);
+                        senders[shard_id][rand_send_thread_idx]
+                            .lock()
+                            .unwrap()
+                            .send(msg, &MessageType::new(execute_command_type));
+                        // outbound_rpc_scheduler_clone.send(msg,
+                        //                                  MessageType::new(execute_command_type),
+                        //                                  senders[shard_id][rand_send_thread_idx].clone(),
+                        //                                  chunk_idx as u64);
                         let current_time = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis() as u64;
                         info!("Sent cmd batch {} to shard {} at time {}", chunk_idx, shard_id, current_time);
                         drop(timer_1)
