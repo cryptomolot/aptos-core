@@ -98,11 +98,11 @@ impl<S: StateView + Sync + Send + 'static> RemoteStateViewService<S> {
         let num_threads = num_threads.unwrap_or_else(num_cpus::get);
         let num_kv_req_threads = 30; //num_cpus::get() / 2;
         let num_shards = remote_shard_addresses.len();
-        let num_kv_recv_threads = 60;
+        let num_kv_recv_threads = 15;
         info!("num threads for remote state view service: {}", num_threads);
 
         let kv_proc_rt = runtime::Builder::new_multi_thread()
-            .worker_threads(120)
+            .worker_threads(90)
             .disable_lifo_slot()
             .enable_all()
             .thread_name("kv_proc")
@@ -203,9 +203,9 @@ impl<S: StateView + Sync + Send + 'static> RemoteStateViewService<S> {
                         .start_timer();
 
                     let priority = if message.seq_num.unwrap() == 0 {
-                        0 + 20
+                        0
                     } else {
-                        message.seq_num.unwrap() + 20 // to give small handicap to cmd messages
+                        message.seq_num.unwrap() + 2 // to give small handicap to cmd messages
                     };
                     kv_unprocessed_clone.send(message, priority);
                     REMOTE_EXECUTOR_TIMER

@@ -118,7 +118,7 @@ pub mod network_message_service_client {
                         "SimpleMsgExchange",
                     ),
                 );
-            let threshold = 30;
+            let threshold = 15;
             let start_time = std::time::SystemTime::now().duration_since(std::time::SystemTime::UNIX_EPOCH).unwrap().as_millis() as u64;
             let result = self.inner.unary(req, path, codec).await;
             let end_time = std::time::SystemTime::now().duration_since(std::time::SystemTime::UNIX_EPOCH).unwrap().as_millis() as u64;

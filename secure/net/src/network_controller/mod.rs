@@ -249,12 +249,12 @@ impl NetworkController {
         Self {
             inbound_handler,
             outbound_handler,
-            inbound_rpc_runtime: runtime::Builder::new_multi_thread().worker_threads(30)
+            inbound_rpc_runtime: runtime::Builder::new_multi_thread().worker_threads(60)
                 .enable_all()
                 .thread_name("inbound_rpc")
                 .build()
                 .unwrap(),
-            outbound_rpc_runtime: Arc::new(runtime::Builder::new_multi_thread().worker_threads(30)
+            outbound_rpc_runtime: Arc::new(runtime::Builder::new_multi_thread().worker_threads(60)
                 .enable_all()
                 .thread_name("outbound_rpc")
                 .build()

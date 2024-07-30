@@ -93,7 +93,7 @@ impl RemoteStateViewClient {
         controller: &mut NetworkController,
         coordinator_address: SocketAddr,
     ) -> Self {
-        let num_kv_req_threads = num_cpus::get() / 2; //num_cpus::get() / 2;
+        let num_kv_req_threads = 8; // num_cpus::get() / 2; //num_cpus::get() / 2;
         let thread_pool = Arc::new(
             rayon::ThreadPoolBuilder::new()
                 .thread_name(move |index| format!("remote-state-view-shard-send-request-{}-{}", shard_id, index))
@@ -228,7 +228,7 @@ impl RemoteStateViewClient {
         let curr_time = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis() as u64;
         info!("Sent (a) kv req batch {} at time: {}", seq_num, curr_time);
 
-        let num_kv_recv_threads = 60;
+        let num_kv_recv_threads = 16;
         outbound_rpc_scheduler.send(
             Message::create_with_metadata(request_message, duration_since_epoch, seq_num, shard_id as u64),
             MessageType::new(format!("{}_{}", REMOTE_KV_REQUEST_MSG_TYPE.to_string(), rand_send_thread_idx % num_kv_recv_threads)),
