@@ -102,7 +102,7 @@ impl<S: StateView + Sync + Send + 'static> RemoteStateViewService<S> {
         info!("num threads for remote state view service: {}", num_threads);
 
         let kv_proc_rt = runtime::Builder::new_multi_thread()
-            .max_blocking_threads(80)
+            .worker_threads(60)
             .disable_lifo_slot()
             .enable_all()
             .thread_name("kv_proc")
@@ -187,7 +187,7 @@ impl<S: StateView + Sync + Send + 'static> RemoteStateViewService<S> {
         for thread_id in 0..self.kv_rx.len() {
             let kv_unprocessed_clone = kv_unprocessed.clone();
             let kv_rx_clone = self.kv_rx[thread_id].clone();
-            self.kv_recv_runtime.spawn(async move {
+            self.kv_recv_runtime.spawn_blocking( move || {
                 while let Ok(message) = kv_rx_clone.recv() {
                     let curr_time = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis() as u64;
                     info!("kv req batch {} received from shard {} at time: {}", message.seq_num.unwrap(), message.shard_id.unwrap(), curr_time);
