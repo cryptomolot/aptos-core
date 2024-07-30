@@ -227,9 +227,11 @@ impl RemoteStateViewClient {
             .with_label_values(&["0_kv_req_grpc_shard_send_1_lock_acquired"]).observe(delta);
         let curr_time = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis() as u64;
         info!("Sent (a) kv req batch {} at time: {}", seq_num, curr_time);
+
+        let num_kv_recv_threads = 16;
         outbound_rpc_scheduler.send(
             Message::create_with_metadata(request_message, duration_since_epoch, seq_num, shard_id as u64),
-            MessageType::new(REMOTE_KV_REQUEST_MSG_TYPE.to_string()),
+            MessageType::new(format!("{}_{}", REMOTE_KV_REQUEST_MSG_TYPE.to_string(), rand_send_thread_idx % num_kv_recv_threads)),
             sender[rand_send_thread_idx % sender.len()].clone(),
             seq_num);
         // sender_lk.send(Message::create_with_metadata(request_message, duration_since_epoch, seq_num, shard_id as u64),
