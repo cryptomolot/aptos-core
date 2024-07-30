@@ -203,9 +203,9 @@ impl<S: StateView + Sync + Send + 'static> RemoteStateViewService<S> {
                         .start_timer();
 
                     let priority = if message.seq_num.unwrap() == 0 {
-                        0
+                        0 + 20
                     } else {
-                        message.seq_num.unwrap() + 2 // to give small handicap to cmd messages
+                        message.seq_num.unwrap() + 20 // to give small handicap to cmd messages
                     };
                     kv_unprocessed_clone.send(message, priority);
                     REMOTE_EXECUTOR_TIMER
