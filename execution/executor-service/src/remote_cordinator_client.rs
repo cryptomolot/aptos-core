@@ -356,10 +356,10 @@ impl CoordinatorClient<RemoteStateViewClient> for RemoteCoordinatorClient {
                 .with_label_values(&[&shard_id_clone.to_string(), "result_tx_send"])
                 .start_timer();
             outbound_rpc_scheduler_clone.send(
-                Message::create_with_metadata(output_message, 0, 2 + seq_num, num_txn as u64), // gives handicap to kv req messages
+                Message::create_with_metadata(output_message, 0, seq_num, num_txn as u64),
                 MessageType::new(execute_result_type),
                 result_tx_clone[rand_result_rx_thread % result_tx_clone.len()].clone(),
-                seq_num);
+                2 + seq_num); // gives handicap to kv req messages
             // result_tx_clone[rand_result_rx_thread].lock().unwrap().send(Message::new(output_message), &MessageType::new(execute_result_type));
             let curr_time = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis() as u64;
             info!("Sent cmd results batch at time: {}", curr_time);
