@@ -95,11 +95,11 @@ impl<S: StateView + Sync + Send + 'static> RemoteStateViewService<S> {
         num_threads: Option<usize>,
     ) -> Self {
         let num_threads = num_threads.unwrap_or_else(num_cpus::get);
-        let num_kv_req_threads = 24; //num_cpus::get() / 2;
+        let num_kv_req_threads = 30; //num_cpus::get() / 2;
         let num_shards = remote_shard_addresses.len();
         info!("num threads for remote state view service: {}", num_threads);
 
-        let kv_proc_rt = runtime::Builder::new_multi_thread().worker_threads(120).enable_all().thread_name("kv_proc").build().unwrap();
+        let kv_proc_rt = runtime::Builder::new_multi_thread().worker_threads(90).enable_all().thread_name("kv_proc").build().unwrap();
         let kv_request_type = "remote_kv_request";
         let kv_response_type = "remote_kv_response";
         let result_rx = controller.create_inbound_channel(kv_request_type.to_string());
@@ -326,7 +326,7 @@ impl<S: StateView + Sync + Send + 'static> RemoteStateViewService<S> {
         outbound_rpc_scheduler.send(resp_message,
                                     MessageType::new("remote_kv_response".to_string()),
                                     kv_tx_clone[shard_id][rand_send_thread_idx].clone(),
-                                    seq_num); // first 100 numbers is reserved for cmd messages
+                                    seq_num + 2); // first 100 numbers is reserved for cmd messages
         // outbound_rpc_runtime.spawn(async move {
         //     kv_tx_clone[shard_id][rand_send_thread_idx].lock().await.send_async(resp_message, &MessageType::new("remote_kv_response".to_string())).await;
         // });
