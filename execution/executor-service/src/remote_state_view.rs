@@ -211,9 +211,9 @@ impl RemoteStateViewClient {
         seq_num: u64,
         outbound_rpc_scheduler: Arc<OutboundRpcScheduler>,
     ) {
-        // let _kv_send_timer = REMOTE_EXECUTOR_RND_TRP_JRNY_TIMER
-        //     .with_label_values(&["kv_send_timer"])
-        //     .start_timer();
+        let _kv_send_timer = REMOTE_EXECUTOR_RND_TRP_JRNY_TIMER
+            .with_label_values(&["kv_send_timer"])
+            .start_timer();
         let request = RemoteKVRequest::new(shard_id, state_keys);
         let request_message = bcs::to_bytes(&request).unwrap();
         let duration_since_epoch = SystemTime::now()
