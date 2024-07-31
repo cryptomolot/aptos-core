@@ -225,37 +225,9 @@ impl GRPCNetworkMessageServiceClientWrapper {
                     .with_label_values(&["8_results_tx_msg_grpc_send"]).observe(delta as f64);
             }
         }
-
+        let msg_type = mt.get_type();
         // TODO: Retry with exponential backoff on failures
-
-        // loop {
-        //     let curr_time = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis() as u64;
-        //     let request = tonic::Request::new(NetworkMessage {
-        //         message: message.data.clone(),
-        //         message_type: mt.get_type(),
-        //         ms_since_epoch: Some(curr_time), //message.start_ms_since_epoch,
-        //         seq_no: message.seq_num,
-        //         shard_id: message.shard_id,
-        //     });
-        //     match timeout(Duration::from_millis(50), self.remote_channel.simple_msg_exchange(request)).await {
-        //         Ok(Ok(_)) => {
-        //             // Operation succeeded
-        //             break;
-        //         },
-        //         Ok(Err(e)) => {
-        //             // Handle the error from the operation
-        //             panic!(
-        //                 "Error '{}' sending message to {} on node {:?}",
-        //                 e, self.remote_addr, sender_addr
-        //             );
-        //         },
-        //         Err(_) => {
-        //             // Timeout occurred, retry
-        //             continue;
-        //         },
-        //     }
-        // }
-
+        let timer1 = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis() as u64;
         match self.remote_channel.simple_msg_exchange(request).await {
             Ok(_) => {},
             Err(e) => {
@@ -264,6 +236,21 @@ impl GRPCNetworkMessageServiceClientWrapper {
                     e, self.remote_addr, sender_addr
                 );
             },
+        }
+        let timer2 = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis() as u64;
+        let delta = (timer2 - timer1) as f64;
+        if msg_type == "remote_kv_request" {
+            REMOTE_EXECUTOR_RND_TRP_JRNY_TIMER
+                .with_label_values(&["grpc_remote_kv_request"]).observe(delta);
+        } else if msg_type == "remote_kv_response" {
+            REMOTE_EXECUTOR_RND_TRP_JRNY_TIMER
+                .with_label_values(&["grpc_remote_kv_response"]).observe(delta);
+        } else if msg_type.starts_with("execute_command_") {
+            REMOTE_EXECUTOR_CMD_RESULTS_RND_TRP_JRNY_TIMER
+                .with_label_values(&["grpc_execute_command"]).observe(delta);
+        } else if msg_type.starts_with("execute_result_") {
+            REMOTE_EXECUTOR_CMD_RESULTS_RND_TRP_JRNY_TIMER
+                .with_label_values(&["grpc_execute_result"]).observe(delta);
         }
     }
 }
