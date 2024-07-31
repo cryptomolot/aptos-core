@@ -65,7 +65,7 @@ impl RemoteCoordinatorClient {
         let result_tx_thread_pool = Arc::new(
             rayon::ThreadPoolBuilder::new()
                 .thread_name(move |index| format!("remote-state-view-shard-send-request-{}-{}", shard_id, index))
-                .num_threads(4)
+                .num_threads(16)
                 .build()
                 .unwrap(),
         );
@@ -191,7 +191,7 @@ impl RemoteCoordinatorClient {
                         let batch_start_index = txns.batch_start_index;
                         let state_keys = Self::extract_state_keys_from_txns(&transactions);
 
-                        state_view_client_clone.pre_fetch_state_values(state_keys, true, random_number, message.shard_id.unwrap());
+                        state_view_client_clone.pre_fetch_state_values(state_keys, false, random_number, message.shard_id.unwrap());
 
                         let _ = transactions.into_iter().enumerate().for_each(|(idx, txn)| {
                             blocking_transactions_provider_clone.set_txn(idx + batch_start_index, txn);
