@@ -15,7 +15,7 @@ use std::time::SystemTime;
 
 extern crate itertools;
 use crate::metrics::{REMOTE_EXECUTOR_REMOTE_KV_COUNT, REMOTE_EXECUTOR_TIMER};
-use aptos_logger::trace;
+use aptos_logger::{info, trace};
 use aptos_types::{
     block_executor::partitioner::ShardId,
     state_store::{
@@ -87,19 +87,19 @@ impl RemoteStateViewClient {
         controller: &mut NetworkController,
         coordinator_address: SocketAddr,
     ) -> Self {
-        let num_kv_req_threads = 2;num_cpus::get() / 2;
+        let num_kv_req_threads = 2; //num_cpus::get() / 2;
         let thread_pool = Arc::new(
             rayon::ThreadPoolBuilder::new()
                 .thread_name(move |index| format!("remote-state-view-shard-send-request-{}-{}", shard_id, index))
-                .num_threads(num_kv_req_threads)
+                .num_threads(1)// num_kv_req_threads)
                 .build()
                 .unwrap(),
         );
         let kv_response_type = "remote_kv_response";
         let result_rx = controller.create_inbound_channel(kv_response_type.to_string());
-        let mut command_tx = vec![];
+        let mut kv_tx = vec![];
         for _ in 0..num_kv_req_threads {
-            command_tx.push(Mutex::new(OutboundRpcHelper::new(controller.get_self_addr(), coordinator_address, controller.get_outbound_rpc_runtime())));
+            kv_tx.push(Mutex::new(OutboundRpcHelper::new(controller.get_self_addr(), coordinator_address, controller.get_outbound_rpc_runtime())));
         }
         let state_view = Arc::new(RwLock::new(RemoteStateView::new()));
         let state_value_receiver = RemoteStateValueReceiver::new(
@@ -120,7 +120,7 @@ impl RemoteStateViewClient {
 
         Self {
             shard_id,
-            kv_tx: Arc::new(command_tx),
+            kv_tx: Arc::new(kv_tx),
             state_view,
             thread_pool,
             _join_handle: Some(join_handle),
@@ -157,6 +157,7 @@ impl RemoteStateViewClient {
                 thread_pool.spawn_fifo(move || {
                     let mut rng = StdRng::from_entropy();
                     let rand_send_thread_idx = rng.gen_range(0, sender.len());
+                    info!("Sending state value request with thread {}", rand_send_thread_idx);
                     Self::send_state_value_request(shard_id, sender, state_keys, rand_send_thread_idx, seq_num);
                 });
             });
