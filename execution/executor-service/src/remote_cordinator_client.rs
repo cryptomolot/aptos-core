@@ -304,6 +304,10 @@ impl CoordinatorClient<RemoteStateViewClient> for RemoteCoordinatorClient {
         self.is_block_init_done.store(false, std::sync::atomic::Ordering::Relaxed);
     }
 
+    fn reset_state_view(&self) {
+        self.state_view_client.init_for_block();
+    }
+
     fn send_execution_result(&mut self, result: Result<Vec<Vec<TransactionOutput>>, VMStatus>) {
         let execute_result_type = format!("execute_result_{}", self.shard_id);
         let duration_since_epoch = self.cmd_rx_msg_duration_since_epoch.load(std::sync::atomic::Ordering::Relaxed);

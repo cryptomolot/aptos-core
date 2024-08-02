@@ -15,6 +15,8 @@ pub trait CoordinatorClient<S: StateView + Sync + Send + 'static>: Send + Sync {
 
     fn reset_block_init(&self);
 
+    fn reset_state_view(&self);
+
     fn send_execution_result(&mut self, result: Result<Vec<Vec<TransactionOutput>>, VMStatus>);
 
     fn stream_execution_result(&mut self, txn_idx_output: Vec<TransactionIdxAndOutput>);
