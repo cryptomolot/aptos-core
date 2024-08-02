@@ -1002,6 +1002,15 @@ pub static BUFFER_MANAGER_RETRY_COUNT: Lazy<IntCounter> = Lazy::new(|| {
     .unwrap()
 });
 
+/// Count of the buffer manager rescheduling execution count.
+pub static BUFFER_MANAGER_RESCHEDULING_EXECUTION_COUNT: Lazy<IntCounter> = Lazy::new(|| {
+    register_int_counter!(
+        "aptos_consensus_buffer_manager_rescheduling_execution_count",
+        "Count of the buffer manager rescheduling execution count"
+    )
+    .unwrap()
+});
+
 const PROPSER_ELECTION_DURATION_BUCKETS: [f64; 17] = [
     0.001, 0.002, 0.003, 0.004, 0.006, 0.008, 0.01, 0.012, 0.014, 0.0175, 0.02, 0.025, 0.05, 0.25,
     0.5, 1.0, 2.0,

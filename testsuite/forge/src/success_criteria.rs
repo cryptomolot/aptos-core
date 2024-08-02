@@ -3,8 +3,8 @@
 
 use crate::{
     prometheus_metrics::{
-        fetch_error_metrics, fetch_system_metrics, LatencyBreakdown, LatencyBreakdownSlice,
-        SystemMetrics,
+        fetch_error_metrics, fetch_execution_retry_metrics, fetch_system_metrics, LatencyBreakdown,
+        LatencyBreakdownSlice, SystemMetrics,
     },
     Swarm, SwarmExt, TestReport,
 };
@@ -164,6 +164,7 @@ pub struct SuccessCriteria {
     latency_breakdown_thresholds: Option<LatencyBreakdownThreshold>,
     check_no_restarts: bool,
     check_no_errors: bool,
+    check_no_execution_retries: bool,
     max_expired_tps: Option<f64>,
     max_failed_submission_tps: Option<f64>,
     wait_for_all_nodes_to_catchup: Option<Duration>,
@@ -184,6 +185,7 @@ impl SuccessCriteria {
             latency_breakdown_thresholds: None,
             check_no_restarts: false,
             check_no_errors: true,
+            check_no_execution_retries: true,
             max_expired_tps: None,
             max_failed_submission_tps: None,
             wait_for_all_nodes_to_catchup: None,
@@ -194,6 +196,11 @@ impl SuccessCriteria {
 
     pub fn allow_errors(mut self) -> Self {
         self.check_no_errors = false;
+        self
+    }
+
+    pub fn allow_execution_retries(mut self) -> Self {
+        self.check_no_execution_retries = false;
         self
     }
 
@@ -333,6 +340,10 @@ impl SuccessCriteriaChecker {
 
         if success_criteria.check_no_errors {
             Self::check_no_errors(swarm.clone()).await?;
+        }
+
+        if success_criteria.check_no_execution_retries {
+            Self::check_no_execution_retries(swarm.clone()).await?;
         }
 
         if let Some(system_metrics_threshold) = success_criteria.system_metrics_threshold.clone() {
@@ -591,7 +602,22 @@ impl SuccessCriteriaChecker {
                 error_count
             );
         } else {
-            println!("No error!() found in validator logs");
+            println!("No error!() found in validator logs.");
+            Ok(())
+        }
+    }
+
+    async fn check_no_execution_retries(
+        swarm: Arc<tokio::sync::RwLock<Box<dyn Swarm>>>,
+    ) -> anyhow::Result<()> {
+        let execution_retries = fetch_execution_retry_metrics(swarm).await?;
+        if execution_retries > 0 {
+            bail!(
+                "Block execution retries on validators was {}, and must be 0",
+                execution_retries
+            );
+        } else {
+            println!("No block execution retries found.");
             Ok(())
         }
     }

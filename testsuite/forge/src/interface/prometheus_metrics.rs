@@ -58,11 +58,10 @@ impl SystemMetrics {
     }
 }
 
-pub async fn fetch_error_metrics(
+async fn fetch_total_count_counter(
     swarm: Arc<tokio::sync::RwLock<Box<dyn Swarm>>>,
-) -> anyhow::Result<i64> {
-    let error_query = r#"aptos_error_log_count{role=~"validator"}"#;
-
+    error_query: &str,
+) -> Result<i64, anyhow::Error> {
     let result = swarm
         .read()
         .await
@@ -73,8 +72,22 @@ pub async fn fetch_error_metrics(
     Ok(error_samples
         .iter()
         .map(|s| s.sample().value().round() as i64)
-        .max()
-        .unwrap_or(0))
+        .sum())
+}
+
+pub async fn fetch_error_metrics(
+    swarm: Arc<tokio::sync::RwLock<Box<dyn Swarm>>>,
+) -> anyhow::Result<i64> {
+    let error_query = r#"aptos_error_log_count{role=~"validator"}"#;
+    fetch_total_count_counter(swarm, error_query).await
+}
+
+pub async fn fetch_execution_retry_metrics(
+    swarm: Arc<tokio::sync::RwLock<Box<dyn Swarm>>>,
+) -> anyhow::Result<i64> {
+    let execution_retry_query =
+        r#"aptos_consensus_buffer_manager_rescheduling_execution_count{role=~"validator"}"#;
+    fetch_total_count_counter(swarm, execution_retry_query).await
 }
 
 pub async fn fetch_system_metrics(

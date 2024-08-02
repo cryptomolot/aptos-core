@@ -314,6 +314,7 @@ impl BufferManager {
                 item.is_ordered()
             });
         if self.execution_root.is_some() && cursor == self.execution_root {
+            counters::BUFFER_MANAGER_RESCHEDULING_EXECUTION_COUNT.inc();
             // Schedule retry.
             self.execution_root
         } else {
