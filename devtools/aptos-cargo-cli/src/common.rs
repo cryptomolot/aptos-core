@@ -15,11 +15,12 @@ use guppy::{
     },
     CargoMetadata, MetadataCommand,
 };
-use log::{debug, info};
+use log::{debug, info, warn};
+use reqwest::Error;
 use std::{
     fs,
     io::Read,
-    path::{Path, PathBuf},
+    path::Path,
     process::{Command, Output},
 };
 use url::Url;
@@ -47,7 +48,7 @@ const MAX_NUM_DAYS_SINCE_MERGE_BASE: u64 = 7;
 // The delimiter used to separate the package path and the package name.
 pub const PACKAGE_NAME_DELIMITER: &str = "#";
 
-fn workspace_dir() -> PathBuf {
+fn workspace_dir() -> String {
     let output = Command::new("cargo")
         .arg("locate-project")
         .arg("--workspace")
@@ -56,7 +57,11 @@ fn workspace_dir() -> PathBuf {
         .unwrap()
         .stdout;
     let cargo_path = Path::new(std::str::from_utf8(&output).unwrap().trim());
-    cargo_path.parent().unwrap().to_path_buf()
+    let workspace_dir = cargo_path.parent().unwrap().to_path_buf();
+    workspace_dir
+        .to_str()
+        .expect("Failed to parse workspace directory!")
+        .to_string()
 }
 
 #[derive(Args, Debug, Clone)]
@@ -94,48 +99,33 @@ impl SelectedPackageArgs {
     }
 
     fn fetch_remote_metadata(&self, merge_base: &str) -> anyhow::Result<CargoMetadata> {
+        // Get the local metadata file path
         let base_sha = self.git_rev_parse(merge_base);
         let file_name = format!("metadata-{}.json", base_sha);
-        let dir_path = format!(
-            "{}/target/aptos-x-tool",
-            workspace_dir().to_str().expect("invalid UTF-8")
-        );
-        let file_path = format!("{}/{}", dir_path, file_name);
-        let mut contents = String::new();
+        let dir_path = format!("{}/target/aptos-x-tool", workspace_dir(),);
+        let local_file_path = format!("{}/{}", dir_path, file_name);
 
-        // Check if the file exists in the local directory
-        if let Ok(file) = fs::File::open(&file_path) {
-            let mut buf_reader = std::io::BufReader::new(file);
-            buf_reader.read_to_string(&mut contents)?;
-        } else {
-            // Make an HTTP call to the GCS bucket to get the file contents
-            let url = format!(
-                "https://storage.googleapis.com/aptos-core-cargo-metadata-public/{}",
-                file_name
-            );
-            let response = reqwest::blocking::get(url)?.error_for_status();
-            match response {
-                Ok(response) => {
-                    let response = response.text()?;
-                    contents.clone_from(&response);
-
-                    // Write the contents of the file to the local directory
-                    fs::create_dir_all("target/aptos-x-tool")?;
-                    fs::write(file_path, response)?;
-                },
-                Err(error) => {
-                    return Err(anyhow!(
-                        "Failed to fetch remote metadata for merge-base commit: {:?}! Error: {}\
-                            \nRebasing your branch may fix this error!",
-                        merge_base,
-                        error
-                    ));
-                },
-            }
+        // Read the metadata from the local file (if it exists)
+        if let Some(metadata) = read_metadata_from_file(&local_file_path) {
+            return Ok(metadata);
         }
 
-        // Return the contents of the file
-        Ok(CargoMetadata::parse_json(&contents)?)
+        // Otherwise, attempt to read the metadata from the GCS bucket
+        if let Some(metadata) = read_metadata_from_gcs(merge_base, file_name, &local_file_path) {
+            return Ok(metadata);
+        }
+
+        // Otherwise, attempt to recompute the metadata locally
+        info!("Attempting to recompute metadata locally...");
+        if let Some(metadata) = recompute_merge_base_metadata(merge_base, &local_file_path) {
+            return Ok(metadata);
+        }
+
+        // Otherwise, return an error
+        Err(anyhow!(
+            "Failed to fetch or recompute remote metadata for merge-base commit: {:?}",
+            merge_base
+        ))
     }
 
     /// Identifies the changed files compared to the merge base, and
@@ -146,7 +136,7 @@ impl SelectedPackageArgs {
         // Determine the merge base
         let merge_base = self.identify_merge_base()?;
 
-        // Download merge base metadata
+        // Download the merge base metadata
         let base_metadata = self.fetch_remote_metadata(&merge_base)?;
         let base_package_graph = base_metadata.build_graph().unwrap();
 
@@ -281,10 +271,203 @@ impl SelectedPackageArgs {
     }
 }
 
+/// Parses the cargo metadata from the given contents
+fn parse_cargo_metadata(metadata_contents: &String) -> Option<CargoMetadata> {
+    match CargoMetadata::parse_json(metadata_contents) {
+        Ok(cargo_metadata) => {
+            // The metadata was successfully parsed from the file
+            Some(cargo_metadata)
+        },
+        Err(error) => {
+            warn!("Error parsing metadata from contents: {:?}", error);
+            None
+        },
+    }
+}
+
 /// Parses a UTF-8 string from the given command output
 fn parse_string_from_output(output: Output) -> String {
     String::from_utf8(output.stdout)
         .expect("invalid UTF-8")
         .trim()
         .to_owned()
+}
+
+/// Prints a warning message for the failed fetch of the remote Cargo.toml
+fn print_cargo_toml_fetch_error(merge_base: &str, error: Error) {
+    warn!(
+        "Failed to fetch remote Cargo.toml for merge-base commit: {:?}! Error: {:?}\
+                            \nRebasing your branch may fix this error!",
+        merge_base, error
+    );
+}
+
+/// Prints a warning message for the failed fetch of the remote metadata
+fn print_metadata_fetch_error(merge_base: &str, error: Error) {
+    warn!(
+        "Failed to fetch remote metadata for merge-base commit: {:?}! Error: {:?}\
+                            \nRebasing your branch may fix this error!",
+        merge_base, error
+    );
+}
+
+/// Attempt to read the cargo metadata from the local file (if it exists).
+/// Otherwise, none is returned if the file does not exist or an error occurs.
+fn read_metadata_from_file(local_file_path: &String) -> Option<CargoMetadata> {
+    if let Ok(file) = fs::File::open(local_file_path) {
+        // Read the file and parse the contents
+        let mut contents = String::new();
+        let mut buf_reader = std::io::BufReader::new(file);
+        if let Err(error) = buf_reader.read_to_string(&mut contents) {
+            warn!(
+                "Error reading metadata file from local path: {:?}. Error: {:?}",
+                local_file_path, error
+            );
+        } else {
+            // Parse the contents as cargo metadata
+            return parse_cargo_metadata(&contents);
+        }
+    }
+
+    None // Unable to read the metadata from the local file
+}
+
+/// Attempt to read the cargo metadata from the GCS bucket (if it exists).
+/// Otherwise, none is returned if the file does not exist or an error occurs.
+fn read_metadata_from_gcs(
+    merge_base: &str,
+    remote_file_name: String,
+    local_file_path: &String,
+) -> Option<CargoMetadata> {
+    // Make a request to the GCS bucket to fetch the metadata file
+    let url = format!(
+        "https://storage.googleapis.com/aptos-core-cargo-metadata-public/{}",
+        remote_file_name
+    );
+    let response = match reqwest::blocking::get(url) {
+        Ok(response) => response.error_for_status(),
+        Err(error) => {
+            print_metadata_fetch_error(merge_base, error);
+            return None;
+        },
+    };
+
+    // Parse the metadata response
+    match response {
+        Ok(response) => {
+            // Get the response text
+            match response.text() {
+                Ok(response) => {
+                    // Parse the contents as JSON
+                    let cargo_metadata = parse_cargo_metadata(&response);
+
+                    // If the metadata was successfully parsed, write it to the local directory
+                    if cargo_metadata.is_some() {
+                        write_content_locally(local_file_path, response);
+                    }
+
+                    // Return the metadata
+                    return cargo_metadata;
+                },
+                Err(error) => {
+                    print_metadata_fetch_error(merge_base, error);
+                    return None;
+                },
+            }
+        },
+        Err(error) => {
+            print_metadata_fetch_error(merge_base, error);
+        },
+    }
+
+    None // Unable to read the metadata from the GCS bucket
+}
+
+/// Recomputes and returns the metadata for the merge base commit locally
+fn recompute_merge_base_metadata(
+    merge_base: &str,
+    local_file_path: &String,
+) -> Option<CargoMetadata> {
+    // Download the Cargo.toml file for the merge base commit
+    let cargo_toml_url = format!(
+        "https://raw.githubusercontent.com/aptos-labs/aptos-core/{}/Cargo.toml",
+        merge_base
+    );
+    let response = match reqwest::blocking::get(cargo_toml_url) {
+        Ok(response) => response.error_for_status(),
+        Err(error) => {
+            print_cargo_toml_fetch_error(merge_base, error);
+            return None;
+        },
+    };
+
+    // Parse the Cargo.toml response
+    let cargo_toml_content = match response {
+        Ok(response) => {
+            // Get the response text
+            match response.text() {
+                Ok(response) => response,
+                Err(error) => {
+                    print_cargo_toml_fetch_error(merge_base, error);
+                    return None;
+                },
+            }
+        },
+        Err(error) => {
+            print_cargo_toml_fetch_error(merge_base, error);
+            return None;
+        },
+    };
+
+    // Write the Cargo.toml file to the local directory
+    let cargo_toml_file_path = format!("{}/Cargo-{}.toml", workspace_dir(), merge_base);
+    write_content_locally(&cargo_toml_file_path, cargo_toml_content);
+
+    // Recompute the metadata for the merge base commit
+    let output = Command::new("cargo")
+        .arg("metadata")
+        .arg("--manifest-path")
+        .arg(cargo_toml_file_path.clone())
+        .output()
+        .expect("failed to execute cargo metadata");
+    let output = parse_string_from_output(output);
+
+    // Delete the Cargo.toml file
+    //if let Err(error) = fs::remove_file(cargo_toml_file_path) {
+    //   warn!(
+    //       "Error deleting Cargo.toml file: {:?}. Error: {:?}",
+    //        cargo_toml_file_path, error
+    //    );
+    //}
+
+    // Parse the metadata from the output
+    let cargo_metadata = parse_cargo_metadata(&output);
+
+    // If the metadata was successfully parsed, write it to the local directory
+    if cargo_metadata.is_some() {
+        write_content_locally(local_file_path, output);
+    }
+
+    // Return the metadata
+    cargo_metadata
+}
+
+/// Writes the contents to the local filesystem
+fn write_content_locally(local_file_path: &String, content: String) {
+    // Create the directory for the file
+    if let Err(error) = fs::create_dir_all("target/aptos-x-tool") {
+        warn!(
+            "Error creating directory for file: {:?}. Error: {:?}",
+            local_file_path, error
+        );
+        return;
+    }
+
+    // Write the contents of the file
+    if let Err(error) = fs::write(local_file_path.clone(), content) {
+        warn!(
+            "Error writing file: {:?}. Error: {:?}",
+            local_file_path, error
+        );
+    }
 }
