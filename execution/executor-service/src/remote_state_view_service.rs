@@ -36,8 +36,8 @@ impl<S: StateView + Sync + Send + 'static> RemoteStateViewService<S> {
         remote_shard_addresses: Vec<SocketAddr>,
         num_threads: Option<usize>,
     ) -> Self {
-        let num_threads = num_threads.unwrap_or_else(num_cpus::get);
-        let num_kv_req_threads = num_cpus::get() / 2;
+        let num_threads = num_threads.unwrap_or_else(num_cpus::get) / 2;
+        let num_kv_req_threads = num_cpus::get() / 4;
         let num_shards = remote_shard_addresses.len();
         info!("num threads for remote state view service: {}", num_threads);
         /*let mut thread_pool = vec![];
@@ -227,8 +227,10 @@ impl<S: StateView + Sync + Send + 'static> RemoteStateViewService<S> {
         );
         let seq_num = message.seq_num.unwrap();
 
-        DEFAULT_DROPPER.schedule_drop(resp);
-        DEFAULT_DROPPER.schedule_drop(message);
+        drop(resp);
+        drop(message);
+        // DEFAULT_DROPPER.schedule_drop(resp);
+        // DEFAULT_DROPPER.schedule_drop(message);
        // info!("Processing message with seq_num: {}", seq_num);
         let resp_message = Message::create_with_metadata(resp_serialized, start_ms_since_epoch, seq_num, shard_id as u64);
         drop(timer_3);
