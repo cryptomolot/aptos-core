@@ -87,11 +87,11 @@ impl RemoteStateViewClient {
         controller: &mut NetworkController,
         coordinator_address: SocketAddr,
     ) -> Self {
-        let num_kv_req_threads = 2; //num_cpus::get() / 2;
+        let num_kv_req_threads = 4; //num_cpus::get() / 2;
         let thread_pool = Arc::new(
             rayon::ThreadPoolBuilder::new()
                 .thread_name(move |index| format!("remote-state-view-shard-send-request-{}-{}", shard_id, index))
-                .num_threads(1)// num_kv_req_threads)
+                .num_threads(4)// num_kv_req_threads)
                 .build()
                 .unwrap(),
         );
