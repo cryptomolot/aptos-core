@@ -168,7 +168,7 @@ impl RemoteCoordinatorClient {
                         let bcs_deser_timer = REMOTE_EXECUTOR_TIMER
                             .with_label_values(&[&shard_id.to_string(), "cmd_rx_bcs_deser"])
                             .start_timer();
-                        
+
                         let txns: CmdsAndMetaData = bcs::from_bytes(&message.data).unwrap();
                         drop(bcs_deser_timer);
                         let transactions = txns.cmds;
