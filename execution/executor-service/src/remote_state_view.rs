@@ -75,7 +75,7 @@ impl RemoteStateView {
 
 pub struct RemoteStateViewClient {
     shard_id: ShardId,
-    kv_tx: Arc<Vec<Mutex<OutboundRpcHelper>>>,
+    kv_tx: Arc<Vec<Arc<Mutex<OutboundRpcHelper>>>>,
     state_view: Arc<RwLock<RemoteStateView>>,
     thread_pool: Arc<rayon::ThreadPool>,
     _join_handle: Option<thread::JoinHandle<()>>,
@@ -99,7 +99,7 @@ impl RemoteStateViewClient {
         let result_rx = controller.create_inbound_channel(kv_response_type.to_string());
         let mut kv_tx = vec![];
         for _ in 0..num_kv_req_threads {
-            kv_tx.push(Mutex::new(OutboundRpcHelper::new(controller.get_self_addr(), coordinator_address, controller.get_outbound_rpc_runtime())));
+            kv_tx.push(Arc::new(Mutex::new(OutboundRpcHelper::new(controller.get_self_addr(), coordinator_address, controller.get_outbound_rpc_runtime()))));
         }
         let state_view = Arc::new(RwLock::new(RemoteStateView::new()));
         let state_value_receiver = RemoteStateValueReceiver::new(
@@ -137,7 +137,7 @@ impl RemoteStateViewClient {
     fn insert_keys_and_fetch_values(
         state_view_clone: Arc<RwLock<RemoteStateView>>,
         thread_pool: Arc<ThreadPool>,
-        kv_tx: Arc<Vec<Mutex<OutboundRpcHelper>>>,
+        kv_tx: Arc<Vec<Arc<Mutex<OutboundRpcHelper>>>>,
         shard_id: ShardId,
         state_keys: Vec<StateKey>,
     ) {
@@ -190,7 +190,7 @@ impl RemoteStateViewClient {
 
     fn send_state_value_request(
         shard_id: ShardId,
-        sender: Arc<Vec<Mutex<OutboundRpcHelper>>>,
+        sender: Arc<Vec<Arc<Mutex<OutboundRpcHelper>>>>,
         state_keys: Vec<StateKey>,
         rand_send_thread_idx: usize,
         seq_num: u64,
