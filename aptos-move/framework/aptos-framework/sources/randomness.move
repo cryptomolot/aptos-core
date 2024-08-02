@@ -26,6 +26,8 @@ module aptos_framework::randomness {
     /// `#[randomness]` annotation. Otherwise, malicious users can bias randomness result.
     const E_API_USE_IS_BIASIBLE: u64 = 1;
 
+    const E_RANDOMNESS_SEED_UNAVAILABLE: u64 = 2333;
+
     const MAX_U256: u256 = 115792089237316195423570985008687907853269984665640564039457584007913129639935;
 
     /// 32-byte randomness seed unique to every block.
@@ -78,6 +80,7 @@ module aptos_framework::randomness {
 
         let input = DST;
         let randomness = borrow_global<PerBlockRandomness>(@aptos_framework);
+        assert!(option::is_some(&randomness.seed), E_RANDOMNESS_SEED_UNAVAILABLE);
         let seed = *option::borrow(&randomness.seed);
 
         vector::append(&mut input, seed);

@@ -552,6 +552,10 @@ impl BufferManager {
                 warn!("Execution error BlockNotFound {}", block_id);
                 return;
             },
+            Err(ExecutorError::MissingRandomness) => {
+                warn!("Execution error MissingRandomness {}. This error is expected during pre-execution.", block_id);
+                return;
+            },
             Err(e) => {
                 error!("Execution error {:?} for {}", e, block_id);
                 return;
@@ -699,7 +703,7 @@ impl BufferManager {
                     };
                     let mut commit_votes = self.buffered_commit_votes.entry(target_block_id).or_default();
                     commit_votes.insert(author, commit_msg);
-                    
+
                     // reply_nack(protocol, response_sender); // TODO: send_commit_vote() doesn't care about the response and this should be direct send not RPC
                 }
             },

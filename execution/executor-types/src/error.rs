@@ -41,6 +41,9 @@ pub enum ExecutorError {
 
     #[error("request timeout")]
     CouldNotGetData,
+
+    #[error("The randomness seed is missing during pre-execution")]
+    MissingRandomness,
 }
 
 impl From<anyhow::Error> for ExecutorError {

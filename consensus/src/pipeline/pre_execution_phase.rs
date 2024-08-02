@@ -3,7 +3,7 @@
 
 use crate::{
     pipeline::pipeline_phase::StatelessPipeline,
-    state_computer::{PipelineExecutionResult, SyncStateComputeResultFut},
+    state_computer::{ExecutionType, PipelineExecutionResult, SyncStateComputeResultFut},
     state_replication::StateComputer,
 };
 use aptos_consensus_types::pipelined_block::PipelinedBlock;
@@ -21,12 +21,12 @@ pub struct PreExecutionRequest {
 
 pub struct PreExecutionPhase {
     execution_proxy: Arc<dyn StateComputer>,
-    execution_futures: Arc<DashMap<HashValue, SyncStateComputeResultFut>>,
+    execution_futures: Arc<DashMap<HashValue, (SyncStateComputeResultFut, ExecutionType)>>,
 }
 
 impl PreExecutionPhase {
-    pub fn new(execution_proxy: Arc<dyn StateComputer>, execution_futures: Arc<DashMap<HashValue, SyncStateComputeResultFut>>) -> Self {
-        Self { 
+    pub fn new(execution_proxy: Arc<dyn StateComputer>, execution_futures: Arc<DashMap<HashValue, (SyncStateComputeResultFut, ExecutionType)>>) -> Self {
+        Self {
             execution_proxy,
             execution_futures,
         }
@@ -53,7 +53,7 @@ impl StatelessPipeline for PreExecutionPhase {
                     .execution_proxy
                     .schedule_compute(block.block(), block.parent_id(), block.randomness().cloned())
                     .await;
-                entry.insert(fut);
+                entry.insert((fut, ExecutionType::PreExecution));
             }
         }
     }

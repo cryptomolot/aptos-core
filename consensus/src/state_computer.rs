@@ -42,6 +42,12 @@ pub type StateComputeResultFut = BoxFuture<'static, ExecutorResult<PipelineExecu
 pub type SyncBoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + Sync + 'a>>;
 pub type SyncStateComputeResultFut = SyncBoxFuture<'static, ExecutorResult<PipelineExecutionResult>>;
 
+#[derive(PartialEq)]
+pub enum ExecutionType {
+    PreExecution,
+    Execution,
+}
+
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct PipelineExecutionResult {
     pub input_txns: Vec<SignedTransaction>,

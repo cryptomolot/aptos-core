@@ -6,7 +6,7 @@ use crate::{
         execution_wait_phase::ExecutionWaitRequest,
         pipeline_phase::{CountedRequest, StatelessPipeline},
     },
-    state_computer::{PipelineExecutionResult, StateComputeResultFut, SyncStateComputeResultFut},
+    state_computer::{ExecutionType, PipelineExecutionResult, StateComputeResultFut, SyncStateComputeResultFut},
     state_replication::StateComputer,
 };
 use aptos_consensus_types::pipelined_block::PipelinedBlock;
@@ -45,12 +45,12 @@ impl Display for ExecutionRequest {
 
 pub struct ExecutionSchedulePhase {
     execution_proxy: Arc<dyn StateComputer>,
-    execution_futures: Arc<DashMap<HashValue, SyncStateComputeResultFut>>,
+    execution_futures: Arc<DashMap<HashValue, (SyncStateComputeResultFut, ExecutionType)>>,
 }
 
 impl ExecutionSchedulePhase {
-    pub fn new(execution_proxy: Arc<dyn StateComputer>, execution_futures: Arc<DashMap<HashValue, SyncStateComputeResultFut>>) -> Self {
-        Self { 
+    pub fn new(execution_proxy: Arc<dyn StateComputer>, execution_futures: Arc<DashMap<HashValue, (SyncStateComputeResultFut, ExecutionType)>>) -> Self {
+        Self {
             execution_proxy,
             execution_futures,
         }
@@ -93,7 +93,7 @@ impl StatelessPipeline for ExecutionSchedulePhase {
                         .execution_proxy
                         .schedule_compute(block.block(), block.parent_id(), block.randomness().cloned())
                         .await;
-                    entry.insert(fut);
+                    entry.insert((fut, ExecutionType::Execution));
                 }
             }
         }
@@ -107,12 +107,20 @@ impl StatelessPipeline for ExecutionSchedulePhase {
             let mut results = vec![];
             for block in ordered_blocks {
                 debug!("[Execution] try to receive compute result for block, epoch {} round {} id {}", block.epoch(), block.round(), block.id());
-                if let Some((_, fut)) = execution_futures.remove(&block.id()) {
+                if let Some((_, (fut, execution_type))) = execution_futures.remove(&block.id()) {
                     let PipelineExecutionResult {
-                    input_txns,
-                    result,
-                    execution_time,
-                } = fut.await?;
+                        input_txns,
+                        result,
+                        execution_time,
+                    } = fut.await?;
+                    // During pre-execution, the randomness seed is unavailable.
+                    // If any transaction in the block requires randomness,
+                    // it will abort with E_RANDOMNESS_SEED_UNAVAILABLE,
+                    // and the block need to be re-execute through the execution pipeline.
+                    if execution_type == ExecutionType::PreExecution && result.missing_randomness() {
+                        debug!("[Execution] block {} of epoch {} round {} is missing randomness, need to re-execute", block.id(), block.epoch(), block.round());
+                        return Err(ExecutorError::MissingRandomness);
+                    }
                     results.push(block.set_execution_result(input_txns, result, execution_time));
                 } else {
                     return Err(ExecutorError::internal_err(format!(

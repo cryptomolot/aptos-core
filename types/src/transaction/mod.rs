@@ -1015,6 +1015,17 @@ impl TransactionStatus {
             panic!("Auto-conversion should not be called with non-executed status.")
         }
     }
+
+    pub fn missing_randomness(&self) -> bool {
+        match self {
+            TransactionStatus::Keep(ExecutionStatus::MoveAbort {
+                location: _,
+                code,
+                info: _,
+            }) => *code == 2333,
+            _ => false,
+        }
+    }
 }
 
 impl From<ExecutionStatus> for TransactionStatus {

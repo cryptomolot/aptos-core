@@ -16,7 +16,7 @@ use crate::{
         proposer_election::ProposerElection,
         round_state::{NewRoundEvent, NewRoundReason, RoundState, RoundStateLogSchema},
         unequivocal_proposer_election::UnequivocalProposerElection,
-    }, logging::{LogEvent, LogSchema}, metrics_safety_rules::MetricsSafetyRules, monitor, network::NetworkSender, network_interface::ConsensusMsg, pending_order_votes::{OrderVoteReceptionResult, PendingOrderVotes}, pending_votes::VoteReceptionResult, persistent_liveness_storage::PersistentLivenessStorage, quorum_store::types::BatchMsg, rand::rand_gen::types::{FastShare, RandConfig, Share, TShare}, state_computer::SyncStateComputeResultFut, util::is_vtxn_expected
+    }, logging::{LogEvent, LogSchema}, metrics_safety_rules::MetricsSafetyRules, monitor, network::NetworkSender, network_interface::ConsensusMsg, pending_order_votes::{OrderVoteReceptionResult, PendingOrderVotes}, pending_votes::VoteReceptionResult, persistent_liveness_storage::PersistentLivenessStorage, quorum_store::types::BatchMsg, rand::rand_gen::types::{FastShare, RandConfig, Share, TShare}, state_computer::{ExecutionType, SyncStateComputeResultFut}, util::is_vtxn_expected
 };
 use anyhow::{bail, ensure, Context};
 use aptos_channels::aptos_channel;
@@ -219,7 +219,7 @@ pub struct RoundManager {
     // To avoid duplicate broadcasts for the same block, we keep track of blocks for
     // which we recently broadcasted fast shares.
     blocks_with_broadcasted_fast_shares: LruCache<HashValue, ()>,
-    execution_futures: Arc<DashMap<HashValue, SyncStateComputeResultFut>>,
+    execution_futures: Arc<DashMap<HashValue, (SyncStateComputeResultFut, ExecutionType)>>,
 }
 
 impl RoundManager {
@@ -239,7 +239,7 @@ impl RoundManager {
         randomness_config: OnChainRandomnessConfig,
         jwk_consensus_config: OnChainJWKConsensusConfig,
         fast_rand_config: Option<RandConfig>,
-        execution_futures: Arc<DashMap<HashValue, SyncStateComputeResultFut>>,
+        execution_futures: Arc<DashMap<HashValue, (SyncStateComputeResultFut, ExecutionType)>>,
     ) -> Self {
         // when decoupled execution is false,
         // the counter is still static.
@@ -1039,9 +1039,17 @@ impl RoundManager {
         let network = self.network.clone();
 
         let task = async move {
-            if let Some((_, fut)) = execution_futures.remove(&block_id) {
+            if let Some((_, (fut, execution_type))) = execution_futures.remove(&block_id) {
                 match fut.await {
                     Ok(execution_result) => {
+                        // During pre-execution, the randomness seed is unavailable.
+                        // If any transaction in the block requires randomness,
+                        // it will abort with E_RANDOMNESS_SEED_UNAVAILABLE,
+                        // and the block need to be re-execute through the execution pipeline.
+                        if execution_type == ExecutionType::PreExecution && execution_result.result.missing_randomness() {
+                            debug!("[Execution] block {} of epoch {} round {} is missing randomness, need to re-execute", block_info.id(), block_info.epoch(), block_info.round());
+                            return;
+                        }
                         let commit_info = BlockInfo::new(
                             block_info.epoch(),
                             block_info.round(),
@@ -1052,10 +1060,10 @@ impl RoundManager {
                             execution_result.result.epoch_state().clone(),
                         );
                         let execution_future = Box::pin(async move { Ok(execution_result) });
-                        execution_futures.insert(block_id, execution_future);
-    
+                        execution_futures.insert(block_id, (execution_future, execution_type));
+
                         info!("[PreExecution] broadcast commit vote for block of epoch {} round {} id {}", block_info.epoch(), block_info.round(), block_id);
-    
+
                         let commit_ledger_info = LedgerInfo::new(commit_info, consensus_data_hash);
                         let signature = safety_rules.lock().sign_pre_commit_vote(commit_ledger_info.clone());
                         match signature{

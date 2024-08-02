@@ -12,7 +12,7 @@ use crate::{
         persisting_phase::{PersistingPhase, PersistingRequest},
         pipeline_phase::{CountedRequest, PipelinePhase},
         signing_phase::{CommitSignerProvider, SigningPhase, SigningRequest, SigningResponse},
-    }, state_computer::SyncStateComputeResultFut, state_replication::StateComputer
+    }, state_computer::{ExecutionType, SyncStateComputeResultFut}, state_replication::StateComputer
 };
 use aptos_bounded_executor::BoundedExecutor;
 use aptos_channels::aptos_channel::Receiver;
@@ -45,7 +45,7 @@ pub fn prepare_phases_and_buffer_manager(
     order_vote_enabled: bool,
     consensus_observer_config: ConsensusObserverConfig,
     consensus_publisher: Option<Arc<ConsensusPublisher>>,
-    execution_futures: Arc<DashMap<HashValue, SyncStateComputeResultFut>>,
+    execution_futures: Arc<DashMap<HashValue, (SyncStateComputeResultFut, ExecutionType)>>,
 ) -> (
     PipelinePhase<PreExecutionPhase>,
     PipelinePhase<ExecutionSchedulePhase>,

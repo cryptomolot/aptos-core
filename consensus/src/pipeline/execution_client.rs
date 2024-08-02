@@ -20,7 +20,7 @@ use crate::{
         storage::interface::RandStorage,
         types::{AugmentedData, RandConfig, Share},
     },
-    state_computer::{ExecutionProxy, SyncStateComputeResultFut},
+    state_computer::{ExecutionProxy, ExecutionType, SyncStateComputeResultFut},
     state_replication::{StateComputer, StateComputerCommitCallBackType},
     transaction_deduper::create_transaction_deduper,
     transaction_shuffler::create_transaction_shuffler,
@@ -70,7 +70,7 @@ pub trait TExecutionClient: Send + Sync {
         fast_rand_config: Option<RandConfig>,
         rand_msg_rx: aptos_channel::Receiver<AccountAddress, IncomingRandGenRequest>,
         highest_committed_round: Round,
-        execution_futures: Arc<DashMap<HashValue, SyncStateComputeResultFut>>,
+        execution_futures: Arc<DashMap<HashValue, (SyncStateComputeResultFut, ExecutionType)>>,
     );
 
     /// This is needed for some DAG tests. Clean this up as a TODO.
@@ -204,7 +204,7 @@ impl ExecutionProxyClient {
         highest_committed_round: Round,
         consensus_observer_config: ConsensusObserverConfig,
         consensus_publisher: Option<Arc<ConsensusPublisher>>,
-        execution_futures: Arc<DashMap<HashValue, SyncStateComputeResultFut>>,
+        execution_futures: Arc<DashMap<HashValue, (SyncStateComputeResultFut, ExecutionType)>>,
     ) {
         let network_sender = NetworkSender::new(
             self.author,
@@ -322,7 +322,7 @@ impl TExecutionClient for ExecutionProxyClient {
         fast_rand_config: Option<RandConfig>,
         rand_msg_rx: aptos_channel::Receiver<AccountAddress, IncomingRandGenRequest>,
         highest_committed_round: Round,
-        execution_futures: Arc<DashMap<HashValue, SyncStateComputeResultFut>>,
+        execution_futures: Arc<DashMap<HashValue, (SyncStateComputeResultFut, ExecutionType)>>,
     ) {
         let maybe_rand_msg_tx = self.spawn_decoupled_execution(
             commit_signer_provider,
@@ -536,7 +536,7 @@ impl TExecutionClient for DummyExecutionClient {
         _fast_rand_config: Option<RandConfig>,
         _rand_msg_rx: aptos_channel::Receiver<AccountAddress, IncomingRandGenRequest>,
         _highest_committed_round: Round,
-        _execution_futures: Arc<DashMap<HashValue, SyncStateComputeResultFut>>,
+        _execution_futures: Arc<DashMap<HashValue, (SyncStateComputeResultFut, ExecutionType)>>,
     ) {
     }
 

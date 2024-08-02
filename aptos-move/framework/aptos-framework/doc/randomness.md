@@ -201,6 +201,15 @@ Randomness APIs calls must originate from a private entry function with
 
 
 
+<a id="0x1_randomness_E_RANDOMNESS_SEED_UNAVAILABLE"></a>
+
+
+
+<pre><code><b>const</b> <a href="randomness.md#0x1_randomness_E_RANDOMNESS_SEED_UNAVAILABLE">E_RANDOMNESS_SEED_UNAVAILABLE</a>: u64 = 2333;
+</code></pre>
+
+
+
 <a id="0x1_randomness_initialize"></a>
 
 ## Function `initialize`
@@ -287,6 +296,7 @@ of the hash function).
 
     <b>let</b> input = <a href="randomness.md#0x1_randomness_DST">DST</a>;
     <b>let</b> <a href="randomness.md#0x1_randomness">randomness</a> = <b>borrow_global</b>&lt;<a href="randomness.md#0x1_randomness_PerBlockRandomness">PerBlockRandomness</a>&gt;(@aptos_framework);
+    <b>assert</b>!(<a href="../../aptos-stdlib/../move-stdlib/doc/option.md#0x1_option_is_some">option::is_some</a>(&<a href="randomness.md#0x1_randomness">randomness</a>.seed), <a href="randomness.md#0x1_randomness_E_RANDOMNESS_SEED_UNAVAILABLE">E_RANDOMNESS_SEED_UNAVAILABLE</a>);
     <b>let</b> seed = *<a href="../../aptos-stdlib/../move-stdlib/doc/option.md#0x1_option_borrow">option::borrow</a>(&<a href="randomness.md#0x1_randomness">randomness</a>.seed);
 
     <a href="../../aptos-stdlib/../move-stdlib/doc/vector.md#0x1_vector_append">vector::append</a>(&<b>mut</b> input, seed);
