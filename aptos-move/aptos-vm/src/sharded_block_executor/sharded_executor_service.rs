@@ -357,8 +357,7 @@ impl<S: StateView + Sync + Send + 'static> ShardedExecutorService<S> {
                     .unwrap()
                     .get_sample_sum();
                 info!(
-                    "Shard {} is shutting down; On shard execution tps {} txns/s ({} txns / {} s)",
-                    self.shard_id,
+                    "On shard execution tps {} txns/s ({} txns / {} s)",
                     (cumulative_txns as f64 / exe_time),
                     cumulative_txns,
                     exe_time
